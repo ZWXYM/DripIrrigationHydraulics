@@ -2,6 +2,7 @@ import random
 import math
 import numpy as np
 from deap import base, creator, tools, algorithms
+from typing import Any
 
 dripper_distance = 0.8
 
@@ -13,17 +14,31 @@ def water_speed(diameter, flow):
     return speed
 
 
-def friction_factor(diameter, flow_rate):
-    d = diameter / 1000
-    Re = 1000 * water_speed(diameter, flow_rate) * d / 1.004e-3
-    epsilon = 1.5e-6
-    A = (epsilon / (3.7 * d)) ** 1.11 + (5.74 / Re) ** 0.9
-    f = 0.25 / (math.log10(A) ** 2)
-    return f, Re
+def friction_factor(diameter, flow_rate, pipe_roughness):
+    d = diameter / 1000  # 转换为米
+    v = water_speed(diameter, flow_rate)
+    Re = 1000 * v * d / 1.004e-3  # 动力粘度可以作为参数传入
+    relative_roughness = pipe_roughness / d
+
+    if Re < 2300:
+        # 层流
+        return 64 / Re, Re
+    elif Re > 4000:
+        # 湍流，使用Colebrook-White方程的显式近似
+        A = (relative_roughness / 3.7)**1.11 + (5.74 / Re) ** 0.9
+        f = 0.25 / (math.log10(A) ** 2)
+        return f, Re
+    else:
+        # 过渡区，线性插值
+        f_2300 = 64 / 2300
+        A_4000 = relative_roughness / 3.7 + 5.74 / 4000 ** 0.9
+        f_4000 = 0.25 / (math.log10(A_4000) ** 2)
+        f = f_2300 + (f_4000 - f_2300) * (Re - 2300) / (4000 - 2300)
+        return f, Re
 
 
 def pressure_loss(diameter, length, flow_rate):
-    f, Re = friction_factor(diameter, flow_rate)
+    f, Re = friction_factor(diameter, flow_rate, 1.5e-6)
     d = diameter / 1000
     v = water_speed(diameter, flow_rate)
     h_f = f * (length / d) * (v ** 2 / (2 * 9.81))
@@ -116,10 +131,9 @@ def evaluate(individual):
 
 
 # 设置遗传算法参数
+toolbox: Any = base.Toolbox()
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 creator.create("Individual", list, fitness=creator.FitnessMin)
-
-toolbox = base.Toolbox()
 toolbox.register("attr_lgz1", random.randint, 1, 10)
 toolbox.register("attr_lgz2", random.randint, 1, 20)
 toolbox.register("individual", tools.initCycle, creator.Individual,
@@ -144,7 +158,9 @@ def main():
 
     pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.2, ngen=100,
                                    stats=stats, halloffame=hof, verbose=True)
-
+    best_individual = tools.selBest(pop, 1)[0]
+    print(f"Best individual: {best_individual}")
+    print(f"Best fitness: {best_individual.fitness.values[0]}")
     best = hof[0]
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
@@ -169,8 +185,8 @@ def final_printa(sub_diameter, lateral_diameter, length_x, length_y, dripper_min
     dripper_loss = 10
     required_head = lateral_loss + sub_loss + dripper_loss
     pressure = required_head * 1e3 * 9.81
-    f_lateral, Re_lateral = friction_factor(lateral_diameter, lateral_flow)  # 沿程阻力系数
-    f_sub, Re_sub = friction_factor(sub_diameter, sub_flow)  # 沿程阻力系数
+    f_lateral, Re_lateral = friction_factor(lateral_diameter, lateral_flow, 1.5e-6)  # 沿程阻力系数
+    f_sub, Re_sub = friction_factor(sub_diameter, sub_flow, 1.5e-6)  # 沿程阻力系数
     lateral_speed = water_speed(lateral_diameter, lateral_flow)
     sub_speed = water_speed(sub_diameter, sub_flow)
     main_speed = water_speed(600, sub_flow * lgz2)
