@@ -108,7 +108,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time
+    T = t * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time
     return TMAX, T
 
 
@@ -171,7 +171,8 @@ def main():
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
     final_printa(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, best[0], best[1])
-    final_printb(50, 2.1, 40, 100, 200, 1.46, 600, 0.75, 0.28, 0.9, 0.8, 0.8, 0.1, 6, 0.95, 20, 1, best[0], best[1], 800,
+    final_printb(50, 2.1, 40, 100, 200, 1.46, 600, 0.75, 0.28, 0.9, 0.8, 0.8, 0.1, 6, 0.95, 20, 1, best[0], best[1],
+                 800,
                  800, 0.8)
 
 
@@ -192,7 +193,7 @@ def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_lengt
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow  # 一次灌水延续时间h
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow  # 一次灌水延续时间h
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time  # 完成所有灌水所需时间Day
+    T = t * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time  # 完成所有灌水所需时间Day
     print(f"最大净灌水定额: {mmax:.3f}mm")
     print(f"设计灌水周期: {TMAX:.3f}天")
     print(f"一次灌水延续时间：{t:.3f}h")
