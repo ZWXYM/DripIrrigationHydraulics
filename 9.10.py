@@ -108,7 +108,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * math.ceil(21 / lgz2) / work_time
     return TMAX, T
 
 
@@ -124,7 +124,7 @@ def evaluate(individual):
                      800, 0.8)
 
     # 计算目标函数值（水头比）
-    head_ratio = (required_head + main_loss) / dripper_loss
+    head_ratio = ((required_head + main_loss) / dripper_loss) + T
     # 检查约束条件
     if T > TMAX:
         return (float('inf'),)  # 返回一个非常大的值作为惩罚
@@ -193,7 +193,8 @@ def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_lengt
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow  # 一次灌水延续时间h
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow  # 一次灌水延续时间h
-    T = t * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time  # 完成所有灌水所需时间Day
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * math.ceil(
+        21 / lgz2) / work_time  # 完成所有灌水所需时间Day
     print(f"最大净灌水定额: {mmax:.3f}mm")
     print(f"设计灌水周期: {TMAX:.3f}天")
     print(f"一次灌水延续时间：{t:.3f}h")
