@@ -85,7 +85,7 @@ def calculate_head(sub_diameter, lateral_diameter, main_diameter, length_x, leng
     main_flow = sub_flow * lgz2
     main_speed = water_speed(600, main_flow)
     main_loss = pressure_loss(main_diameter, lgz2 * 400, main_flow)
-    return required_head, dripper_loss, main_loss, main_speed
+    return required_head, dripper_loss, main_loss, main_speed, main_flow
 
 
 def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
@@ -102,10 +102,10 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
     TMAX = mmax / ib
     m1 = mmax / nn
     if plant <= 1:
-        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow*5)
+        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow * 8)
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * (block_number / lgz1) * math.ceil(22 / lgz2) / work_time
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time
     return TMAX, T
 
 
@@ -114,25 +114,29 @@ def evaluate(individual):
     lgz1, lgz2 = individual
 
     # 计算所需水头和灌水时间
-    required_head, dripper_loss, main_loss, main_speed = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1,
-                                                                        lgz1, lgz2)
-    TMAX, T = shuili(50, 2.1, 40, 100, 200, 1.46, 500, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, lgz1, lgz2, 800,
+    required_head, dripper_loss, main_loss, main_speed, main_flow = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40,
+                                                                                   0.8, 1,
+                                                                                   lgz1, lgz2)
+    TMAX, T = shuili(50, 2.1, 40, 100, 200, 1.46, 600, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, lgz1, lgz2, 800,
                      800, 0.8)
 
     # 计算目标函数值（水头比）
-    head_ratio = (required_head+main_loss)/dripper_loss
+    head_ratio = (required_head + main_loss) / dripper_loss
 
     # 检查约束条件
     if T > TMAX:
         return (float('inf'),)  # 返回一个非常大的值作为惩罚
     else:
-        if lgz1 % 2 == 0:
-            if main_speed <= 2:
-                return (head_ratio,)
+        if required_head > 27:
+            return (float('inf'),)
+        else:
+            if lgz1 % 2 == 0:
+                if main_flow <= 0.4:
+                    return (head_ratio,)
+                else:
+                    return (float('inf'),)
             else:
                 return (float('inf'),)
-        else:
-            return (float('inf'),)
 
 
 # 设置遗传算法参数
@@ -164,16 +168,8 @@ def main():
     best = hof[0]
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
-
-    # 计算并打印最佳解的详细信息
-    required_head, dripper_loss, main_loss, main_speed = calculate_head(160, 90, 600, 180, 750, 2.1, 50, 40, 0.8, 1,
-                                                                        best[0],
-                                                                        best[1])
-
-    print(f"\nDetailed results:")
-    print(f"Head ratio: {required_head / dripper_loss:.3f}")
-    final_printa(160, 90,500, 180, 750, 2.1, 50, 40, 0.8, 1, best[0], best[1])
-    final_printb(50, 2.1, 40, 100, 200, 1.46, 500, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, best[0], best[1], 800,
+    final_printa(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, best[0], best[1])
+    final_printb(50, 2.1, 40, 100, 200, 1.46, 600, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, best[0], best[1], 800,
                  800, 0.8)
 
 
@@ -189,17 +185,18 @@ def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_lengt
     TMAX = mmax / ib  # 设计灌水周期d、mmax单位
     m1 = mmax / nn  # 设计毛灌水定额(mm)
     if plant <= 1:
-        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow*5)  # 一次灌水延续时间h
+        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow * 8)  # 一次灌水延续时间h
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow  # 一次灌水延续时间h
-    T = t * (fuzhu_number / lgz0) * (block_number / lgz1) * math.ceil(22 / lgz2) / work_time  # 完成所有灌水所需时间Day
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(22 / lgz2) / work_time  # 完成所有灌水所需时间Day
     print(f"最大净灌水定额: {mmax:.3f}mm")
     print(f"设计灌水周期: {TMAX:.3f}天")
     print(f"一次灌水延续时间：{t:.3f}h")
     print(f"完成所有灌水所需时间：{T:.3f}天")
 
 
-def final_printa(sub_diameter, lateral_diameter,main_diameter, length_x, length_y, dripper_min_flow, dripper_length, fuzhu_sub_length,
+def final_printa(sub_diameter, lateral_diameter, main_diameter, length_x, length_y, dripper_min_flow, dripper_length,
+                 fuzhu_sub_length,
                  dripper_distance, lgz0, lgz1, lgz2):
     lateral_flow, sub_flow, dripper_flow = calculate_flow_rates(dripper_min_flow, dripper_length, fuzhu_sub_length,
                                                                 dripper_distance, lgz0, lgz1)
@@ -213,7 +210,7 @@ def final_printa(sub_diameter, lateral_diameter,main_diameter, length_x, length_
     pressure = required_head * 1e3 * 9.81
     f_lateral, Re_lateral = friction_factor(lateral_diameter, lateral_flow, 1.5e-6)  # 沿程阻力系数
     f_sub, Re_sub = friction_factor(sub_diameter, sub_flow, 1.5e-6)  # 沿程阻力系数
-    f_main, Re_main=friction_factor(main_diameter,main_flow,1.5e-6)
+    f_main, Re_main = friction_factor(main_diameter, main_flow, 1.5e-6)
     lateral_speed = water_speed(lateral_diameter, lateral_flow)
     sub_speed = water_speed(sub_diameter, sub_flow)
     main_loss = pressure_loss(main_diameter, lgz2 * 400, main_flow)
