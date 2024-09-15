@@ -84,12 +84,15 @@ def calculate_head(sub_diameter, lateral_diameter, main_diameter, length_x, leng
     required_head = lateral_loss + sub_loss + dripper_loss
     main_flow = sub_flow * lgz2
     main_speed = water_speed(600, main_flow)
-    main_loss = pressure_loss(main_diameter, lgz2 * 400, main_flow)
+    # main_loss = pressure_loss(main_diameter, lgz2 * 400, main_flow)
+    main_losses = [pressure_loss(main_diameter, y, main_flow) for y in range(lgz2 * 400, 21 * 400 + 1, 100)]
+    main_loss = sum(main_losses) / len(main_losses)
     return required_head, dripper_loss, main_loss, main_speed, main_flow
 
 
 def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
-           Soil_bulk_density, field_z, field_p, field_max, field_min, sr, st, ib, nn, work_time, lgz0, lgz1, lgz2,
+           Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time, lgz0,
+           lgz1, lgz2,
            Full_field_long, Full_field_wide, dripper_distance):
     num_rows = math.floor(fuzhu_sub_length / sr)
     plants_per_row = math.floor(field_length / st)
@@ -98,11 +101,11 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
     block_number = Full_field_long / field_length * Full_field_wide / field_wide
     fuzhu_number = int(field_wide / fuzhu_sub_length)
     plant = num_dripper / total_plants
-    mmax = Soil_bulk_density * field_z * field_p * (field_max - field_min)
+    mmax = Soil_bulk_density * field_z * (field_p - field_p_old) * (field_max - field_min)
     TMAX = mmax / ib
     m1 = mmax / nn
     if plant <= 1:
-        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow * 8)
+        t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
     T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time
@@ -117,12 +120,11 @@ def evaluate(individual):
     required_head, dripper_loss, main_loss, main_speed, main_flow = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40,
                                                                                    0.8, 1,
                                                                                    lgz1, lgz2)
-    TMAX, T = shuili(50, 2.1, 40, 100, 200, 1.46, 600, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, lgz1, lgz2, 800,
+    TMAX, T = shuili(50, 2.1, 40, 100, 200, 1.46, 600, 0.75, 0.28, 0.9, 0.8, 0.8, 0.1, 6, 0.95, 20, 1, lgz1, lgz2, 800,
                      800, 0.8)
 
     # 计算目标函数值（水头比）
     head_ratio = (required_head + main_loss) / dripper_loss
-
     # 检查约束条件
     if T > TMAX:
         return (float('inf'),)  # 返回一个非常大的值作为惩罚
@@ -169,26 +171,28 @@ def main():
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
     final_printa(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, best[0], best[1])
-    final_printb(50, 2.1, 40, 100, 200, 1.46, 600, 0.7, 0.9, 0.8, 0.8, 0.1, 8, 0.9, 20, 1, best[0], best[1], 800,
+    final_printb(50, 2.1, 40, 100, 200, 1.46, 600, 0.75, 0.28, 0.9, 0.8, 0.8, 0.1, 6, 0.95, 20, 1, best[0], best[1], 800,
                  800, 0.8)
 
 
 def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
-                 Soil_bulk_density, field_z, field_p, field_max, field_min, sr, st, ib, nn, work_time, lgz0, lgz1, lgz2,
+                 Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time,
+                 lgz0, lgz1, lgz2,
                  Full_field_long, Full_field_wide, dripper_distance):
     num_rows, plants_per_row, total_plants = calculate_plant_count(field_length, fuzhu_sub_length, sr, st)
     num_dripper = calculate_dripper_count(dripper_length, fuzhu_sub_length, dripper_distance)
     block_number = Full_field_long / field_length * Full_field_wide / field_wide
     fuzhu_number = int(field_wide / fuzhu_sub_length)
     plant = num_dripper / total_plants  # 每个植物附件的滴头数
-    mmax = Soil_bulk_density * field_z * field_p * (field_max - field_min)  # 最大净灌水定额(mm)
-    TMAX = mmax / ib  # 设计灌水周期d、mmax单位
+    mmax = Soil_bulk_density * field_z * (field_p - field_p_old) * (field_max - field_min)  # 最大净灌水定额(mm)
+    mold = Soil_bulk_density * field_z * field_p_old * (field_max - field_min)
+    TMAX = (mmax + mold) / ib  # 设计灌水周期d、mmax单位
     m1 = mmax / nn  # 设计毛灌水定额(mm)
     if plant <= 1:
-        t = (m1 * dripper_spacing * dripper_distance) / (dripper_min_flow * 8)  # 一次灌水延续时间h
+        t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow  # 一次灌水延续时间h
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow  # 一次灌水延续时间h
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(22 / lgz2) / work_time  # 完成所有灌水所需时间Day
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(21 / lgz2) / work_time  # 完成所有灌水所需时间Day
     print(f"最大净灌水定额: {mmax:.3f}mm")
     print(f"设计灌水周期: {TMAX:.3f}天")
     print(f"一次灌水延续时间：{t:.3f}h")
@@ -213,7 +217,8 @@ def final_printa(sub_diameter, lateral_diameter, main_diameter, length_x, length
     f_main, Re_main = friction_factor(main_diameter, main_flow, 1.5e-6)
     lateral_speed = water_speed(lateral_diameter, lateral_flow)
     sub_speed = water_speed(sub_diameter, sub_flow)
-    main_loss = pressure_loss(main_diameter, lgz2 * 400, main_flow)
+    main_losses = [pressure_loss(main_diameter, y, main_flow) for y in range(lgz2 * 400, 21 * 400 + 1, 100)]
+    main_loss = sum(main_losses) / len(main_losses)
     print(f'最远端滴灌带所需水头: {required_head:.3f} m')
     print(f'最远端滴灌带所需压力: {pressure / 1000000:.3f} MPa')
     print(f"滴灌带水头: {dripper_loss:.3f} m")
