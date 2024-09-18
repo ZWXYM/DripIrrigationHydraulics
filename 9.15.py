@@ -181,7 +181,6 @@ def main():
                  800,
                  800, 0.8)
 
-
 def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
                  Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time,
                  lgz0, lgz1, lgz2,
