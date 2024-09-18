@@ -130,7 +130,7 @@ def evaluate(individual):
                      800, 0.8)
 
     # 计算目标函数值（水头比）
-    head_ratio = ((required_head + main_loss) / dripper_loss)+T
+    head_ratio = ((required_head + main_loss) / dripper_loss) + T
     # 检查约束条件
     if required_head <= 27:
         if lgz1 % 2 == 0:
@@ -181,6 +181,7 @@ def main():
                  800,
                  800, 0.8)
 
+
 def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
                  Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time,
                  lgz0, lgz1, lgz2,
@@ -190,7 +191,8 @@ def final_printb(dripper_length, dripper_min_flow, fuzhu_sub_length, field_lengt
     block_number = Full_field_long / field_length * Full_field_wide / field_wide
     fuzhu_number = int(field_wide / fuzhu_sub_length)
     plant = num_dripper / total_plants  # 每个植物附件的滴头数
-    mmax = 0.001 * (Soil_bulk_density * 1000) * field_z * field_p * (field_max - field_min) * field_p_old * 1000  # 最大净灌水定额(mm)
+    mmax = 0.001 * (Soil_bulk_density * 1000) * field_z * field_p * (
+                field_max - field_min) * field_p_old * 1000  # 最大净灌水定额(mm)
     # TMAX = mmax / ib  # 设计灌水周期d、mmax单位
     m1 = mmax / nn  # 设计毛灌水定额(mm)
     if plant <= 1:
