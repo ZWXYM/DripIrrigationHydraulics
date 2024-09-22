@@ -63,7 +63,7 @@ def calculate_plant_count(fuzhu_field_wide, fuzhu_sub_length, sr, st):
     plants_per_row = math.floor(fuzhu_field_wide / st)  # 将cm转换为m
     # 计算总植物数
     total_plants = math.floor(num_rows * plants_per_row)
-    return num_rows, plants_per_row, total_plants
+    return total_plants
 
 
 # 计算辅助农管控制范围内滴灌头数量
@@ -121,10 +121,8 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
     lgz0 = int(lgz0)
     lgz1 = int(lgz1)
     lgz2 = int(lgz2)
-    num_rows = math.floor(fuzhu_sub_length / sr)
-    plants_per_row = math.floor(field_length / st)
-    total_plants = math.floor(num_rows * plants_per_row)
-    num_dripper = math.floor(fuzhu_sub_length / 0.8) * math.floor(dripper_length / dripper_spacing)
+    total_plants = calculate_plant_count(field_length, fuzhu_sub_length, sr, st)
+    num_dripper = calculate_dripper_count(dripper_length, fuzhu_sub_length, dripper_distance)
     block_number = Full_field_long / field_length * Full_field_wide / field_wide
     fuzhu_number = round(field_wide / fuzhu_sub_length)
     plant = num_dripper / total_plants
@@ -216,7 +214,7 @@ class IrrigationApp(tk.Tk):
             ('设计土壤浸润比', 0.75, float),
             ('土壤持水量', 0.28, float),
             ('适宜土壤含水率上限', 0.9, float),
-            ('适宜土壤含水率下限', 0.8, float),
+            ('适宜土壤含水率下限', 0.7, float),
             ('植物行距(m)', 0.8, float),
             ('植物一行上株距(m)', 0.1, float),
             ('设计耗水强度(mm)', 6, float),
