@@ -3,7 +3,9 @@ import math
 import numpy as np
 from deap import base, creator, tools, algorithms
 from typing import Any
-
+import tkinter as tk
+from tkinter import ttk, messagebox
+import json
 dripper_spacing = 0.3
 DATAA = []
 
@@ -112,7 +114,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
     total_plants = math.floor(num_rows * plants_per_row)
     num_dripper = math.floor(fuzhu_sub_length / 0.8) * math.floor(dripper_length / dripper_spacing)
     block_number = Full_field_long / field_length * Full_field_wide / field_wide
-    fuzhu_number = int(field_wide / fuzhu_sub_length)
+    fuzhu_number = round(field_wide / fuzhu_sub_length)
     plant = num_dripper / total_plants
     mmax = (Soil_bulk_density * 1000) * field_z * field_p * (field_max - field_min) * field_p_old
     # TMAX = mmax / ib
@@ -121,7 +123,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * int(21 / lgz2) / work_time
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * round(21 / lgz2) / work_time
     total_water_v = num_dripper * dripper_min_flow * t / 1000
     total_field_s = dripper_length * fuzhu_sub_length
     water_z = total_water_v / total_field_s * 1000
@@ -133,13 +135,16 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
 # 定义评估函数
 def evaluate(individual):
     lgz1, lgz2 = individual
-    PRINTA = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, lgz1, lgz2)
+    PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
+                            DATAA[26], lgz1, lgz2)
     required_head = PRINTA[0]
     dripper_loss = PRINTA[2]
     main_loss = PRINTA[15]
     # 计算所需水头和灌水时间
-    PRANTB = shuili(50, 2.1, 40, 100, 200, 1.46, 0.6, 0.75, 0.28, 0.9, 0.7, 0.8, 0.1, 6, 0.95, 20, 1, lgz1, lgz2, 800,
-                    800, 0.8)
+    PRANTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
+                    DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], DATAA[26], lgz1, lgz2,
+                    DATAA[22],
+                    DATAA[23], DATAA[3])
     T = PRANTB[3]
 
     # 计算目标函数值（水头比）
@@ -166,6 +171,7 @@ else:
 
 # 主函数
 def main():
+    inputa()
     random.seed(10)
     # 设置遗传算法参数
     toolbox: Any = base.Toolbox()
@@ -189,10 +195,13 @@ def main():
     best = hof[0]
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
-    PRINTA = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, best[0], best[1])
-    PRINTB = shuili(50, 2.1, 40, 100, 200, 1.46, 0.6, 0.75, 0.28, 0.9, 0.7, 0.8, 0.1, 6, 0.95, 20, 1, best[0], best[1],
-                    800,
-                    800, 0.8)
+    PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
+                            DATAA[26], best[0], best[1])
+    PRINTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
+                    DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], DATAA[26], best[0],
+                    best[1],
+                    DATAA[22],
+                    DATAA[23], DATAA[3])
     required_head = PRINTA[0]
     pressure = PRINTA[1]
     dripper_loss = PRINTA[2]
@@ -242,37 +251,71 @@ def main():
 
 def inputa():
     global DATAA
-    dripper_min_flow = int(input('滴灌带滴孔流量(L/h):'))
-    dripper_length = int(input('滴灌带长度(m):'))
-    fuzhu_sub_length = int(input('辅助农管长度(m):'))
-    dripper_distance = int(input('滴灌带间距(m):'))
-    sub_diameter = int(input('斗管管径(mm):'))
-    lateral_diameter = int(input('农管管径(mm):'))
-    main_diameter = int(input('支管管径(mm):'))
-    lateral_length = int(input('农管长度(m):'))
-    sub_length = int(input('斗管长度(m):'))
-    field_length = int(input('小地块y方向的长(m):'))
-    field_wide = int(input('小地块x方向的长(m):'))
-    Soil_bulk_density = int(input('土壤容重(g/cm3):'))
-    field_z = int(input('设计浸润深度(m):'))
-    field_p = int(input('设计土壤浸润比(%，例0.9)：'))
-    field_p_old = int(input('土壤持水量(%，例0.9)：'))
-    field_max = int(input('适宜土壤含水率上限(%，例0.9)：'))
-    field_min = int(input('适宜土壤含水率下限(%，例0.9)：'))
-    sr = int(input('植物行距(m):'))
-    st = int(input('植物一行上株距(m):'))
-    ib = int(input('设计耗水强度(mm):'))
-    nn = int(input('灌水利用效率(%，例0.9)：'))
-    work_time = int(input('日工作时长(h):'))
-    Full_field_long = int(input('地块全长(m):'))
-    Full_field_wide = int(input('地块全宽(m):'))
-    required_head_max = int(input('最远端滴灌带所需最小水头(m)'))
-    main_loss_max = int(input('干管水头损失最大值（m）:'))
+    dripper_min_flow = float(input('滴灌带滴孔流量(L/h):'))
+    dripper_length = float(input('滴灌带长度(m):'))
+    fuzhu_sub_length = float(input('辅助农管长度(m):'))
+    dripper_distance = float(input('滴灌带间距(m):'))
+    sub_diameter = float(input('斗管管径(mm):'))
+    lateral_diameter = float(input('农管管径(mm):'))
+    main_diameter = float(input('支管管径(mm):'))
+    lateral_length = float(input('农管长度(m):'))
+    sub_length = float(input('斗管长度(m):'))
+    field_length = float(input('小地块y方向的长(m):'))
+    field_wide = float(input('小地块x方向的长(m):'))
+    Soil_bulk_density = float(input('土壤容重(g/cm3):'))
+    field_z = float(input('设计浸润深度(m):'))
+    field_p = float(input('设计土壤浸润比(%，例0.9)：'))
+    field_p_old = float(input('土壤持水量(%，例0.9)：'))
+    field_max = float(input('适宜土壤含水率上限(%，例0.9)：'))
+    field_min = float(input('适宜土壤含水率下限(%，例0.9)：'))
+    sr = float(input('植物行距(m):'))
+    st = float(input('植物一行上株距(m):'))
+    ib = float(input('设计耗水强度(mm):'))
+    nn = float(input('灌水利用效率(%，例0.9)：'))
+    work_time = float(input('日工作时长(h):'))
+    Full_field_long = float(input('地块全长(m):'))
+    Full_field_wide = float(input('地块全宽(m):'))
+    required_head_max = float(input('最远端滴灌带所需最小水头(m)'))
+    main_loss_max = float(input('干管水头损失最大值（m）:'))
+    lgz0 = float(input('一条农管上开启的辅助农管条数:'))
     DATAA = [dripper_min_flow, dripper_length, fuzhu_sub_length, dripper_distance, sub_diameter, lateral_diameter,
              main_diameter, lateral_length, sub_length, field_length, field_wide, Soil_bulk_density, field_z, field_p,
              field_p_old, field_max, field_min, sr, st, ib, nn, work_time, Full_field_long, Full_field_wide,
-             required_head_max, main_loss_max]
+             required_head_max, main_loss_max, lgz0]
     return DATAA
+
+
+'''
+0. dripper_min_flow 2.1
+1. dripper_length 50
+2. fuzhu_sub_length 40
+3. dripper_distance 0.8
+4. sub_diameter 160
+5. lateral_diameter 90
+6. main_diameter 500
+7. lateral_length 200
+8. sub_length 750
+9. field_length 100
+10. field_wide 200
+11. Soil_bulk_density 1.46
+12. field_z 0.6
+13. field_p 0.75
+14. field_p_old 0.28
+15. field_max 0.9
+16. field_min 0.8
+17. sr 0.8
+18. st 0.1
+19. ib 6
+20. nn 0.95
+21. work_time 20
+22. Full_field_long 800
+23. Full_field_wide 800
+24. required_head_max 27
+25. main_loss_max 23
+26. lgz0 1
+    PRINTA = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, lgz1, lgz2)
+    PRANTB = shuili(50, 2.1, 40, 100, 200, 1.46, 0.6, 0.75, 0.28, 0.9, 0.7, 0.8, 0.1, 6, 0.95, 20, 1, lgz1, lgz2, 800,800, 0.8)
+    '''
 
 
 def diameter_reput():
