@@ -76,13 +76,14 @@ def calculate_flow_rates(dripper_min_flow, dripper_length, fuzhu_sub_length, dri
 
 
 # 水头损失计算总函数
-def calculate_head(sub_diameter, lateral_diameter, main_diameter, length_x, length_y, dripper_min_flow, dripper_length,
+def calculate_head(sub_diameter, lateral_diameter, main_diameter, lateral_length, sub_length, dripper_min_flow,
+                   dripper_length,
                    fuzhu_sub_length, dripper_distance, lgz0, lgz1, lgz2):
     lateral_flow, sub_flow, dripper_flow, main_flow = calculate_flow_rates(dripper_min_flow, dripper_length,
                                                                            fuzhu_sub_length,
                                                                            dripper_distance, lgz0, lgz1, lgz2)
-    lateral_loss = pressure_loss(lateral_diameter, length_x, lateral_flow)
-    sub_losses = [pressure_loss(sub_diameter, y, sub_flow) for y in range(50, length_y + 1, 100)]
+    lateral_loss = pressure_loss(lateral_diameter, lateral_length, lateral_flow)
+    sub_losses = [pressure_loss(sub_diameter, y, sub_flow) for y in range(50, sub_length + 1, 100)]
     sub_loss = sum(sub_losses) / len(sub_losses)
     dripper_loss = 10
     required_head = lateral_loss + sub_loss + dripper_loss
@@ -236,6 +237,58 @@ def main():
     print(f"设计灌水周期: {TMAX:.3f}天")
     print(f"一次灌水延续时间：{t:.3f}h")
     print(f"完成所有灌水所需时间：{T:.3f}天")
+
+
+def inputa():
+    dripper_min_flow = input()
+    dripper_length = input()
+    fuzhu_sub_length = input()
+    dripper_distance = input()
+    sub_diameter = input()
+    lateral_diameter = input()
+    main_diameter = input()
+    lateral_length = input()
+    sub_length = input()
+    field_length = input()
+    field_wide = input()
+    Soil_bulk_density = input()
+    field_z = input()
+    field_p = input()
+    field_p_old = input()
+    field_max = input()
+    field_min = input()
+    sr = input()
+    st = input()
+    ib = input()
+    nn = input()
+    work_time = input()
+    Full_field_long = input()
+    Full_field_wide = input()
+
+    DATAA = [dripper_min_flow, dripper_length, fuzhu_sub_length, dripper_distance, sub_diameter, lateral_diameter,
+             main_diameter, lateral_length, sub_length, field_length, field_wide, Soil_bulk_density, field_z, field_p,
+             field_p_old, field_max, field_min, sr, st, ib, nn, work_time, Full_field_long, Full_field_wide]
+    return DATAA
+
+
+def diameter_reput():
+    pass
+
+
+# 滴头的设计允许流量偏差率 k (%);滴头流态指数 x;毛管进水口的设计水头 h10 (m);滴灌带最小流量 dripper_min_flow (L/h);h入口处水头损失（m）;dripper_length目标长度（m）;lateral_diameter农管管径
+def dripper_max_length(dripper_min_flow, dripper_length, lateral_diameter):
+    x = 0.6
+    k = 0.2
+    h = 10
+    hl = k / x * (1 + 0.15 * ((1 - x) / x) * k)  # 允许水头偏差率（%）
+    hl_max = h * (1 + hl)  # 最大水头损失（m）
+    nm = ((5.466 * hl_max * (lateral_diameter ** 4.75)) / (1.2*dripper_spacing * (2*(dripper_min_flow * (dripper_length / dripper_spacing)) ** 1.75))) ** 0.364
+    Nm = math.ceil(nm)
+    L = Nm * dripper_spacing
+    if L >= dripper_length:
+        return 1, L
+    else:
+        return 0, L
 
 
 if __name__ == "__main__":
