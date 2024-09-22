@@ -2,12 +2,17 @@ import random
 import math
 import numpy as np
 from deap import base, creator, tools, algorithms
-from typing import Any
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json
+
 dripper_spacing = 0.3
 DATAA = []
+
+
+def create_deap_types():
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
 
 
 # 流速计算函数，输入管径mm、流量m3/s
@@ -86,10 +91,14 @@ def calculate_head(sub_diameter, lateral_diameter, main_diameter, lateral_length
                                                                            fuzhu_sub_length,
                                                                            dripper_distance, lgz0, lgz1, lgz2)
     lateral_loss = pressure_loss(lateral_diameter, lateral_length, lateral_flow)
-    sub_losses = [pressure_loss(sub_diameter, y, sub_flow) for y in range(50, sub_length + 1, 100)]
+
+    # 修改这里，确保 range() 函数的参数都是整数
+    sub_losses = [pressure_loss(sub_diameter, y, sub_flow) for y in range(50, int(sub_length) + 1, 100)]
     sub_loss = sum(sub_losses) / len(sub_losses)
     dripper_loss = 10
     required_head = lateral_loss + sub_loss + dripper_loss
+
+    # 同样修改这里
     main_losses = [pressure_loss(main_diameter, y, main_flow) for y in range(lgz2 * 400, 21 * 400 + 1, 100)]
     main_loss = sum(main_losses) / len(main_losses)
     f_lateral, Re_lateral = friction_factor(lateral_diameter, lateral_flow, 1.5e-6)  # 沿程阻力系数
@@ -109,6 +118,9 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
            Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time, lgz0,
            lgz1, lgz2,
            Full_field_long, Full_field_wide, dripper_distance):
+    lgz0 = int(lgz0)
+    lgz1 = int(lgz1)
+    lgz2 = int(lgz2)
     num_rows = math.floor(fuzhu_sub_length / sr)
     plants_per_row = math.floor(field_length / st)
     total_plants = math.floor(num_rows * plants_per_row)
@@ -134,7 +146,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
 
 # 定义评估函数
 def evaluate(individual):
-    lgz1, lgz2 = individual
+    lgz1, lgz2 = map(int, individual)
     PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
                             DATAA[26], lgz1, lgz2)
     required_head = PRINTA[0]
@@ -170,121 +182,175 @@ else:
 
 
 # 主函数
+class IrrigationApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("灌溉系统优化")
+        self.geometry("700x800")
+
+        self.entries = {}
+        self.toolbox = base.Toolbox()
+
+        create_deap_types()
+        self.create_widgets()
+        self.setup_deap()
+
+    def create_widgets(self):
+        frame = ttk.Frame(self, padding="10")
+        frame.grid(row=0, column=0, sticky="nsew")
+        row = 0
+        for label, default, var_type in [
+            ('滴灌带滴孔流量(L/h)', 2.1, float),
+            ('滴灌带长度(m)', 50, float),
+            ('辅助农管长度(m)', 40, float),
+            ('滴灌带间距(m)', 0.8, float),
+            ('斗管管径(mm)', 160, int),
+            ('农管管径(mm)', 90, int),
+            ('支管管径(mm)', 500, int),
+            ('农管长度(m)', 200, float),
+            ('斗管长度(m)', 750, float),
+            ('小地块y方向的长(m)', 100, float),
+            ('小地块x方向的长(m)', 200, float),
+            ('土壤容重(g/cm3)', 1.46, float),
+            ('设计浸润深度(m)', 0.6, float),
+            ('设计土壤浸润比', 0.75, float),
+            ('土壤持水量', 0.28, float),
+            ('适宜土壤含水率上限', 0.9, float),
+            ('适宜土壤含水率下限', 0.8, float),
+            ('植物行距(m)', 0.8, float),
+            ('植物一行上株距(m)', 0.1, float),
+            ('设计耗水强度(mm)', 6, float),
+            ('灌水利用效率', 0.95, float),
+            ('日工作时长(h)', 20, float),
+            ('地块全长(m)', 800, float),
+            ('地块全宽(m)', 800, float),
+            ('最远端滴灌带所需最小水头(m)', 27, float),
+            ('干管水头损失最大值(m)', 23, float),
+            ('一条农管上开启的辅助农管条数', 1, int)
+        ]:
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w")
+            entry = ttk.Entry(frame)
+            entry.insert(0, str(default))
+            entry.grid(row=row, column=1)
+            self.entries[label] = (entry, var_type)
+            row += 1
+
+        ttk.Button(frame, text="运行优化", command=self.run_optimization).grid(row=row, column=0, columnspan=2, pady=10)
+        ttk.Button(frame, text="加载预设", command=self.load_preset).grid(row=row + 1, column=0, columnspan=2, pady=10)
+        ttk.Button(frame, text="保存预设", command=self.save_preset).grid(row=row + 2, column=0, columnspan=2, pady=10)
+
+    def run_optimization(self):
+        global DATAA
+        try:
+            DATAA = [entry_type[1](entry_type[0].get()) for entry_type in self.entries.values()]
+            results = self.optimize()
+            self.show_results(results)
+        except ValueError as e:
+            messagebox.showerror("错误", f"输入值错误: {str(e)}")
+        except Exception as e:
+            messagebox.showerror("错误", f"发生错误: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def setup_deap(self):
+        self.toolbox.register("attr_lgz1", random.randint, 1, 10)
+        self.toolbox.register("attr_lgz2", random.randint, 1, 20)
+        self.toolbox.register("individual", tools.initCycle, creator.Individual,
+                              (self.toolbox.attr_lgz1, self.toolbox.attr_lgz2), n=1)
+        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+        self.toolbox.register("evaluate", evaluate)
+        self.toolbox.register("mate", tools.cxTwoPoint)
+        self.toolbox.register("mutate", tools.mutUniformInt, low=[1, 1], up=[10, 20], indpb=0.2)
+        self.toolbox.register("select", tools.selTournament, tournsize=3)
+
+    def optimize(self):
+        random.seed(10)
+        pop = self.toolbox.population(n=100)
+        hof = tools.HallOfFame(1)
+        stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats.register("avg", np.mean)
+        stats.register("min", np.min)
+        stats.register("max", np.max)
+        algorithms.eaSimple(pop, self.toolbox, cxpb=0.9, mutpb=0.9, ngen=50, stats=stats, halloffame=hof, verbose=True)
+        best = hof[0]
+
+        PRINTA = calculate_head(int(DATAA[4]), int(DATAA[5]), int(DATAA[6]), DATAA[7], DATAA[8], DATAA[0], DATAA[1],
+                                DATAA[2], DATAA[3],
+                                int(DATAA[26]), int(best[0]), int(best[1]))
+        PRINTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
+                        DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], int(DATAA[26]),
+                        int(best[0]),
+                        int(best[1]), DATAA[22], DATAA[23], DATAA[3])
+
+        return best, PRINTA, PRINTB
+
+    def show_results(self, results):
+        best, PRINTA, PRINTB = results
+        result_window = tk.Toplevel(self)
+        result_window.title("优化结果")
+        result_window.geometry("700x800")
+
+        text = tk.Text(result_window, wrap=tk.WORD)
+        text.pack(expand=True, fill=tk.BOTH)
+
+        text.insert(tk.END, f"最佳解决方案: lgz1 = {best[0]}, lgz2 = {best[1]}\n")
+        text.insert(tk.END, f"最佳适应度: {best.fitness.values[0]}\n\n")
+
+        for label, value, unit in [
+            ('最远端滴灌带所需水头', PRINTA[0], 'm'),
+            ('最远端滴灌带所需压力', PRINTA[1], 'MPa'),
+            ('滴灌带水头', PRINTA[2], 'm'),
+            ('单条农管入口所需水头', PRINTA[3] + PRINTA[2], 'm'),
+            ('农管雷诺数', PRINTA[4], ''),
+            ('农管沿程阻力系数', PRINTA[5], ''),
+            ('农管水头损失', PRINTA[3], 'm'),
+            ('农管轮灌最大流量', PRINTA[6], 'm³/s'),
+            ('农管轮灌最大流速', PRINTA[7], 'm/s'),
+            ('斗管雷诺数', PRINTA[8], ''),
+            ('斗管沿程阻力系数', PRINTA[9], ''),
+            ('斗管水头损失', PRINTA[10], 'm'),
+            ('斗管轮灌最大流量', PRINTA[11], 'm³/s'),
+            ('斗管轮灌最大流速', PRINTA[12], 'm/s'),
+            ('支管雷诺数', PRINTA[13], ''),
+            ('支管沿程阻力系数', PRINTA[14], ''),
+            ('支管水头损失', PRINTA[15], 'm'),
+            ('支管轮灌最大流量', PRINTA[16], 'm³/s'),
+            ('支管轮灌最大流速', PRINTA[17], 'm/s'),
+            ('最大净灌水定额', PRINTB[0], 'mm'),
+            ('设计灌水周期', PRINTB[1], '天'),
+            ('一次灌水延续时间', PRINTB[2], 'h'),
+            ('完成所有灌水所需时间', PRINTB[3], '天')
+        ]:
+            text.insert(tk.END, f"{label}: {value:.3f} {unit}\n")
+
+    def load_preset(self):
+        try:
+            with open("preset.json", "r") as f:
+                preset = json.load(f)
+            for label, value in preset.items():
+                if label in self.entries:
+                    self.entries[label][0].delete(0, tk.END)
+                    self.entries[label][0].insert(0, str(value))
+            messagebox.showinfo("成功", "预设加载成功")
+        except FileNotFoundError:
+            messagebox.showerror("错误", "未找到预设文件")
+        except json.JSONDecodeError:
+            messagebox.showerror("错误", "无效的预设文件格式")
+
+    def save_preset(self):
+        preset = {label: self.entries[label][1](entry.get()) for label, (entry, _) in self.entries.items()}
+        with open("preset.json", "w") as f:
+            json.dump(preset, f)
+        messagebox.showinfo("成功", "预设保存成功")
+
+
 def main():
-    inputa()
-    random.seed(10)
-    # 设置遗传算法参数
-    toolbox: Any = base.Toolbox()
-    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", list, fitness=creator.FitnessMin)
-    toolbox.register("attr_lgz1", random.randint, 1, 10)
-    toolbox.register("attr_lgz2", random.randint, 1, 20)
-    toolbox.register("individual", tools.initCycle, creator.Individual, (toolbox.attr_lgz1, toolbox.attr_lgz2), n=1)
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("evaluate", evaluate)
-    toolbox.register("mate", tools.cxTwoPoint)
-    toolbox.register("mutate", tools.mutUniformInt, low=[1, 1], up=[10, 20], indpb=0.2)
-    toolbox.register("select", tools.selTournament, tournsize=3)
-    pop = toolbox.population(n=100)
-    hof = tools.HallOfFame(1)
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
-    stats.register("avg", np.mean)
-    stats.register("min", np.min)
-    stats.register("max", np.max)
-    algorithms.eaSimple(pop, toolbox, cxpb=0.9, mutpb=0.9, ngen=50, stats=stats, halloffame=hof, verbose=True)
-    best = hof[0]
-    print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
-    print(f"Best fitness: {best.fitness.values[0]}")
-    PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
-                            DATAA[26], best[0], best[1])
-    PRINTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
-                    DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], DATAA[26], best[0],
-                    best[1],
-                    DATAA[22],
-                    DATAA[23], DATAA[3])
-    required_head = PRINTA[0]
-    pressure = PRINTA[1]
-    dripper_loss = PRINTA[2]
-    lateral_loss = PRINTA[3]
-    Re_lateral = PRINTA[4]
-    f_lateral = PRINTA[5]
-    lateral_flow = PRINTA[6]
-    lateral_speed = PRINTA[7]
-    Re_sub = PRINTA[8]
-    f_sub = PRINTA[9]
-    sub_loss = PRINTA[10]
-    sub_flow = PRINTA[11]
-    sub_speed = PRINTA[12]
-    Re_main = PRINTA[13]
-    f_main = PRINTA[14]
-    main_loss = PRINTA[15]
-    main_flow = PRINTA[16]
-    main_speed = PRINTA[17]
-    mmax = PRINTB[0]
-    TMAX = PRINTB[1]
-    t = PRINTB[2]
-    T = PRINTB[3]
-    print(f'最远端滴灌带所需水头: {required_head:.3f} m')
-    print(f'最远端滴灌带所需压力: {pressure:.3f} MPa')
-    print(f"滴灌带水头: {dripper_loss:.3f} m")
-    print(f"单条农管入口所需水头: {lateral_loss + dripper_loss:.3f} m")
-    print(f"农管雷诺数: {Re_lateral:.3f}")
-    print(f"农管沿程阻力系数: {f_lateral:.3f}")
-    print(f"农管水头损失: {lateral_loss:.3f} m")
-    print(f"农管轮灌最大流量: {lateral_flow:.3f} m³/s")
-    print(f"农管轮灌最大流速: {lateral_speed:.3f} m/s")
-    print(f"斗管雷诺数: {Re_sub:.3f}")
-    print(f"斗管沿程阻力系数: {f_sub:.3f}")
-    print(f"斗管水头损失: {sub_loss:.3f} m")
-    print(f"斗管轮灌最大流量: {sub_flow:.3f} m³/s")
-    print(f"斗管轮灌最大流速: {sub_speed:.3f} m/s")
-    print(f"支管雷诺数: {Re_main:.3f}")
-    print(f"支管沿程阻力系数: {f_main:.3f}")
-    print(f"支管水头损失: {main_loss:.3f} m")
-    print(f"支管轮灌最大流量: {main_flow:.3f} m³/s")
-    print(f"支管轮灌最大流速: {main_speed:.3f} m/s")  # 开启多少条斗管
-    print(f"最大净灌水定额: {mmax:.3f}mm")
-    print(f"设计灌水周期: {TMAX:.3f}天")
-    print(f"一次灌水延续时间：{t:.3f}h")
-    print(f"完成所有灌水所需时间：{T:.3f}天")
+    app = IrrigationApp()
+    app.mainloop()
 
 
-def inputa():
-    global DATAA
-    dripper_min_flow = float(input('滴灌带滴孔流量(L/h):'))
-    dripper_length = float(input('滴灌带长度(m):'))
-    fuzhu_sub_length = float(input('辅助农管长度(m):'))
-    dripper_distance = float(input('滴灌带间距(m):'))
-    sub_diameter = float(input('斗管管径(mm):'))
-    lateral_diameter = float(input('农管管径(mm):'))
-    main_diameter = float(input('支管管径(mm):'))
-    lateral_length = float(input('农管长度(m):'))
-    sub_length = float(input('斗管长度(m):'))
-    field_length = float(input('小地块y方向的长(m):'))
-    field_wide = float(input('小地块x方向的长(m):'))
-    Soil_bulk_density = float(input('土壤容重(g/cm3):'))
-    field_z = float(input('设计浸润深度(m):'))
-    field_p = float(input('设计土壤浸润比(%，例0.9)：'))
-    field_p_old = float(input('土壤持水量(%，例0.9)：'))
-    field_max = float(input('适宜土壤含水率上限(%，例0.9)：'))
-    field_min = float(input('适宜土壤含水率下限(%，例0.9)：'))
-    sr = float(input('植物行距(m):'))
-    st = float(input('植物一行上株距(m):'))
-    ib = float(input('设计耗水强度(mm):'))
-    nn = float(input('灌水利用效率(%，例0.9)：'))
-    work_time = float(input('日工作时长(h):'))
-    Full_field_long = float(input('地块全长(m):'))
-    Full_field_wide = float(input('地块全宽(m):'))
-    required_head_max = float(input('最远端滴灌带所需最小水头(m)'))
-    main_loss_max = float(input('干管水头损失最大值（m）:'))
-    lgz0 = float(input('一条农管上开启的辅助农管条数:'))
-    DATAA = [dripper_min_flow, dripper_length, fuzhu_sub_length, dripper_distance, sub_diameter, lateral_diameter,
-             main_diameter, lateral_length, sub_length, field_length, field_wide, Soil_bulk_density, field_z, field_p,
-             field_p_old, field_max, field_min, sr, st, ib, nn, work_time, Full_field_long, Full_field_wide,
-             required_head_max, main_loss_max, lgz0]
-    return DATAA
-
-
+if __name__ == "__main__":
+    main()
 '''
 0. dripper_min_flow 2.1
 1. dripper_length 50
@@ -316,28 +382,3 @@ def inputa():
     PRINTA = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, lgz1, lgz2)
     PRANTB = shuili(50, 2.1, 40, 100, 200, 1.46, 0.6, 0.75, 0.28, 0.9, 0.7, 0.8, 0.1, 6, 0.95, 20, 1, lgz1, lgz2, 800,800, 0.8)
     '''
-
-
-def diameter_reput():
-    pass
-
-
-# 滴头的设计允许流量偏差率 k (%);滴头流态指数 x;毛管进水口的设计水头 h10 (m);滴灌带最小流量 dripper_min_flow (L/h);h入口处水头损失（m）;dripper_length目标长度（m）;lateral_diameter农管管径
-def dripper_max_length(dripper_min_flow, dripper_length, lateral_diameter):
-    x = 0.6
-    k = 0.2
-    h = 10
-    hl = k / x * (1 + 0.15 * ((1 - x) / x) * k)  # 允许水头偏差率（%）
-    hl_max = h * (1 + hl)  # 最大水头损失（m）
-    nm = ((5.466 * hl_max * (lateral_diameter ** 4.75)) / (
-            1.2 * dripper_spacing * (2 * (dripper_min_flow * (dripper_length / dripper_spacing)) ** 1.75))) ** 0.364
-    Nm = math.ceil(nm)
-    L = Nm * dripper_spacing
-    if L >= dripper_length:
-        return 1, L
-    else:
-        return 0, L
-
-
-if __name__ == "__main__":
-    main()
