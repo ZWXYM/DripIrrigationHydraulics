@@ -5,6 +5,7 @@ from deap import base, creator, tools, algorithms
 from typing import Any
 
 dripper_spacing = 0.3
+DATAA = []
 
 
 # 流速计算函数，输入管径mm、流量m3/s
@@ -120,7 +121,7 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * int(block_number / 2 / lgz1) * int(21 / lgz2) / work_time
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * int(21 / lgz2) / work_time
     total_water_v = num_dripper * dripper_min_flow * t / 1000
     total_field_s = dripper_length * fuzhu_sub_length
     water_z = total_water_v / total_field_s * 1000
@@ -142,11 +143,11 @@ def evaluate(individual):
     T = PRANTB[3]
 
     # 计算目标函数值（水头比）
-    head_ratio = ((required_head + main_loss) / dripper_loss) + T
+    head_ratio = ((required_head + main_loss) / dripper_loss) * 0.4 + T * 0.6
     # 检查约束条件
-    if required_head <= 27:
-        if lgz1 % 2 == 0:
-            if main_loss <= 23:
+    if required_head <= DATAA[24]:
+        if lgz1 % 4 == 0:
+            if main_loss <= DATAA[25]:
                 return (head_ratio,)
             else:
                 return (float('inf'),)
@@ -178,13 +179,13 @@ def main():
     toolbox.register("mate", tools.cxTwoPoint)
     toolbox.register("mutate", tools.mutUniformInt, low=[1, 1], up=[10, 20], indpb=0.2)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=100)
     hof = tools.HallOfFame(1)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("min", np.min)
     stats.register("max", np.max)
-    algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.5, ngen=200, stats=stats, halloffame=hof, verbose=True)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.9, mutpb=0.9, ngen=50, stats=stats, halloffame=hof, verbose=True)
     best = hof[0]
     print(f"\nBest solution: lgz1 = {best[0]}, lgz2 = {best[1]}")
     print(f"Best fitness: {best.fitness.values[0]}")
@@ -240,34 +241,37 @@ def main():
 
 
 def inputa():
-    dripper_min_flow = input()
-    dripper_length = input()
-    fuzhu_sub_length = input()
-    dripper_distance = input()
-    sub_diameter = input()
-    lateral_diameter = input()
-    main_diameter = input()
-    lateral_length = input()
-    sub_length = input()
-    field_length = input()
-    field_wide = input()
-    Soil_bulk_density = input()
-    field_z = input()
-    field_p = input()
-    field_p_old = input()
-    field_max = input()
-    field_min = input()
-    sr = input()
-    st = input()
-    ib = input()
-    nn = input()
-    work_time = input()
-    Full_field_long = input()
-    Full_field_wide = input()
-
+    global DATAA
+    dripper_min_flow = int(input())
+    dripper_length = int(input())
+    fuzhu_sub_length = int(input())
+    dripper_distance = int(input())
+    sub_diameter = int(input())
+    lateral_diameter = int(input())
+    main_diameter = int(input())
+    lateral_length = int(input())
+    sub_length = int(input())
+    field_length = int(input())
+    field_wide = int(input())
+    Soil_bulk_density = int(input())
+    field_z = int(input())
+    field_p = int(input())
+    field_p_old = int(input())
+    field_max = int(input())
+    field_min = int(input())
+    sr = int(input())
+    st = int(input())
+    ib = int(input())
+    nn = int(input())
+    work_time = int(input())
+    Full_field_long = int(input())
+    Full_field_wide = int(input())
+    required_head_max = int(input())
+    main_loss_max = int(input())
     DATAA = [dripper_min_flow, dripper_length, fuzhu_sub_length, dripper_distance, sub_diameter, lateral_diameter,
              main_diameter, lateral_length, sub_length, field_length, field_wide, Soil_bulk_density, field_z, field_p,
-             field_p_old, field_max, field_min, sr, st, ib, nn, work_time, Full_field_long, Full_field_wide]
+             field_p_old, field_max, field_min, sr, st, ib, nn, work_time, Full_field_long, Full_field_wide,
+             required_head_max, main_loss_max]
     return DATAA
 
 
@@ -282,7 +286,8 @@ def dripper_max_length(dripper_min_flow, dripper_length, lateral_diameter):
     h = 10
     hl = k / x * (1 + 0.15 * ((1 - x) / x) * k)  # 允许水头偏差率（%）
     hl_max = h * (1 + hl)  # 最大水头损失（m）
-    nm = ((5.466 * hl_max * (lateral_diameter ** 4.75)) / (1.2*dripper_spacing * (2*(dripper_min_flow * (dripper_length / dripper_spacing)) ** 1.75))) ** 0.364
+    nm = ((5.466 * hl_max * (lateral_diameter ** 4.75)) / (
+            1.2 * dripper_spacing * (2 * (dripper_min_flow * (dripper_length / dripper_spacing)) ** 1.75))) ** 0.364
     Nm = math.ceil(nm)
     L = Nm * dripper_spacing
     if L >= dripper_length:
