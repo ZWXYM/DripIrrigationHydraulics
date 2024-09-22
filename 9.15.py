@@ -155,18 +155,6 @@ def evaluate(individual):
         return (float('inf'),)
 
 
-# 设置遗传算法参数
-toolbox: Any = base.Toolbox()
-creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-creator.create("Individual", list, fitness=creator.FitnessMin)
-toolbox.register("attr_lgz1", random.randint, 1, 10)
-toolbox.register("attr_lgz2", random.randint, 1, 20)
-toolbox.register("individual", tools.initCycle, creator.Individual, (toolbox.attr_lgz1, toolbox.attr_lgz2), n=1)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-toolbox.register("evaluate", evaluate)
-toolbox.register("mate", tools.cxTwoPoint)
-toolbox.register("mutate", tools.mutUniformInt, low=[1, 1], up=[10, 20], indpb=0.2)
-toolbox.register("select", tools.selTournament, tournsize=3)
 '''
  if T > TMAX:
     return (float('inf'),)  # 返回一个非常大的值作为惩罚
@@ -177,6 +165,18 @@ else:
 # 主函数
 def main():
     random.seed(10)
+    # 设置遗传算法参数
+    toolbox: Any = base.Toolbox()
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
+    toolbox.register("attr_lgz1", random.randint, 1, 10)
+    toolbox.register("attr_lgz2", random.randint, 1, 20)
+    toolbox.register("individual", tools.initCycle, creator.Individual, (toolbox.attr_lgz1, toolbox.attr_lgz2), n=1)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("evaluate", evaluate)
+    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mutate", tools.mutUniformInt, low=[1, 1], up=[10, 20], indpb=0.2)
+    toolbox.register("select", tools.selTournament, tournsize=3)
     pop = toolbox.population(n=50)
     hof = tools.HallOfFame(1)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
