@@ -43,7 +43,7 @@
     <option name="selectedUrlAndAccountId">
       <UrlAndAccount>
         <option name="accountId" value="b0dc56f2-b0f5-4d2d-987c-94cd8baf2347" />
-        <option name="url" value="https://github.com/ZWXYM/Hydraulic-optimization-of-drip-irrigation-networks.git" />
+        <option name="url" value="https://github.com/ZWXYM/DripIrrigationHydraulics.git" />
       </UrlAndAccount>
     </option>
   </component>
@@ -317,7 +317,23 @@
       <option name="project" value="LOCAL" />
       <updated>1726491001737</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1726666668883</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1726666668883</updated>
+    </task>
+    <task id="LOCAL-00027" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1726666741787</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1726666741787</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
