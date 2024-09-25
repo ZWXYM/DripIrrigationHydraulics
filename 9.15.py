@@ -132,8 +132,8 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
     if plant <= 1:
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
-        t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * round(21 / lgz2) / work_time
+        t = (m1 * sr * st) / (plant * dripper_min_flow)
+    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * math.ceil(21 / lgz2) / work_time
     total_water_v = num_dripper * dripper_min_flow * t / 1000
     total_field_s = dripper_length * fuzhu_sub_length
     water_z = total_water_v / total_field_s * 1000

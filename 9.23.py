@@ -62,7 +62,7 @@ def calculate_plant_count(fuzhu_field_wide, fuzhu_sub_length, sr, st):
     # 计算每行植物数
     plants_per_row = math.floor(fuzhu_field_wide / st)  # 将cm转换为m
     # 计算总植物数
-    total_plants = math.floor(num_rows * plants_per_row)
+    total_plants = num_rows * plants_per_row
     return total_plants
 
 
@@ -81,6 +81,10 @@ def calculate_flow_rates(dripper_min_flow, dripper_length, fuzhu_sub_length, dri
     sub_flow = lateral_flow * lgz1
     main_flow = sub_flow * lgz2
     return lateral_flow, sub_flow, dripper_flow, main_flow
+
+
+def special_loss(block_type, special_length, lateral_diameter, sub_diameter, dripper_min_flow):
+    pass
 
 
 # 水头损失计算总函数
@@ -118,13 +122,10 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
            Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time, lgz0,
            lgz1, lgz2,
            Full_field_long, Full_field_wide, dripper_distance):
-    lgz0 = int(lgz0)
-    lgz1 = int(lgz1)
-    lgz2 = int(lgz2)
     total_plants = calculate_plant_count(field_length, fuzhu_sub_length, sr, st)
-    num_dripper = calculate_dripper_count(dripper_length, fuzhu_sub_length, dripper_distance)
-    block_number = Full_field_long / field_length * Full_field_wide / field_wide
-    fuzhu_number = round(field_wide / fuzhu_sub_length)
+    num_dripper = calculate_dripper_count(dripper_length * 2, fuzhu_sub_length, dripper_distance)
+    block_number = (Full_field_long / field_length) * ((Full_field_wide / 2) / field_wide)
+    fuzhu_number = field_wide / fuzhu_sub_length
     plant = num_dripper / total_plants
     mmax = (Soil_bulk_density * 1000) * field_z * field_p * (field_max - field_min) * field_p_old
     # TMAX = mmax / ib
@@ -133,10 +134,10 @@ def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, fie
         t = (m1 * dripper_spacing * dripper_distance) / dripper_min_flow
     else:
         t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * (fuzhu_number / lgz0) * math.ceil(block_number / 2 / lgz1) * round(21 / lgz2) / work_time
+    T = t * math.ceil(fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(23 / lgz2) / work_time
     total_water_v = num_dripper * dripper_min_flow * t / 1000
-    total_field_s = dripper_length * fuzhu_sub_length
-    water_z = total_water_v / total_field_s * 1000
+    total_field_s = field_length * fuzhu_sub_length
+    water_z = (total_water_v / total_field_s) * 1000
     TMAX = water_z / ib
     PRANTB = [mmax, TMAX, t, T]
     return PRANTB
@@ -148,7 +149,6 @@ def evaluate(individual):
     PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
                             DATAA[26], lgz1, lgz2)
     required_head = PRINTA[0]
-    dripper_loss = PRINTA[2]
     main_loss = PRINTA[15]
     # 计算所需水头和灌水时间
     PRANTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
@@ -158,8 +158,7 @@ def evaluate(individual):
     T = PRANTB[3]
 
     # 计算目标函数值（水头比）
-    head_ratio = ((required_head + main_loss) / dripper_loss) * 0.4 + T * 0.6
-    # 检查约束条件
+    head_ratio = T + main_loss*0.5  # 检查约束条件
     if required_head <= DATAA[24]:
         if lgz1 % 4 == 0:
             if main_loss <= DATAA[25]:
