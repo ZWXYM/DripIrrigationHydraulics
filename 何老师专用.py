@@ -201,14 +201,37 @@ def evaluate(individual):
     PRINTA = calculate_sub_head(lgz1, lgz2)
     PRINTB = calculate_main_head(DATAA[6], lgz1, lgz2)
     PRINTC = lgz_num_count(lgz1, lgz2)
+
     required_head = PRINTA[0]
     main_loss = PRINTB[2]
     T = PRINTC[3]
-    # 计算目标函数值（水头比）
-    head_ratio = T+0.5*main_loss  # 检查约束条件
+
+    # 增加新的评估指标
+    lateral_speed = PRINTA[7]  # 农管流速
+    sub_speed = PRINTA[12]  # 斗管流速
+    main_speed = PRINTB[4]  # 支管流速
+
+    # 流速惩罚项(理想流速范围0.5-2.5m/s)
+    speed_penalty = 0
+    for speed in [lateral_speed, sub_speed, main_speed]:
+        if speed < 0.5:
+            speed_penalty += (0.5 - speed) * 10
+        elif speed > 2.5:
+            speed_penalty += (speed - 2.5) * 10
+
+    # 水头损失分布均匀性惩罚项
+    loss_distribution = abs(main_loss / (required_head + 0.01) - 0.3)  # 理想状态下主管水头损失约占30%
+
+    # 最终的适应度函数
+    fitness = (T * 0.5 +  # 灌溉时间权重
+               main_loss * 0.1 +  # 水头损失权重
+               speed_penalty * 0.3 +  # 流速惩罚权重
+               loss_distribution * 0.1)  # 水头损失分布权重
+
+    # 约束条件检查
     if required_head <= DATAA[13]:
         if main_loss <= DATAA[14]:
-            return (head_ratio,)
+            return (fitness,)
         else:
             return (float('inf'),)
     else:
@@ -311,23 +334,34 @@ class IrrigationApp(tk.Tk):
         self.toolbox.register("select", tools.selTournament, tournsize=3)
 
     def optimize(self):
-        random.seed(10)
-        pop = self.toolbox.population(n=100)
+        random.seed(42)  # 使用固定的随机种子以获得可重复的结果
+
+        # 增加种群大小和迭代次数
+        pop = self.toolbox.population(n=200)
         hof = tools.HallOfFame(1)
+
+        # 添加更多统计信息
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         stats.register("avg", np.mean)
+        stats.register("std", np.std)
         stats.register("min", np.min)
         stats.register("max", np.max)
-        algorithms.eaSimple(pop, self.toolbox, cxpb=0.9, mutpb=0.9, ngen=50, stats=stats, halloffame=hof, verbose=True)
+
+        # 调整遗传算法参数
+        algorithms.eaSimple(pop, self.toolbox,
+                            cxpb=0.9,  # 保持较高的交叉率
+                            mutpb=0.2,  # 降低变异率以保持稳定性
+                            ngen=30,  # 增加迭代次数
+                            stats=stats,
+                            halloffame=hof,
+                            verbose=True)
+
         best = hof[0]
 
         PRINTA = calculate_sub_head(best[0], best[1])
         PRINTB = calculate_main_head(DATAA[6], best[0], best[1])
         PRINTC = lgz_num_count(best[0], best[1])
-        # 在优化过程中调用
         DATAA[6] = guanjing(PRINTA, PRINTB, best[1])
-        # 使用新的管径重新计算PRINTA
-        # PRINTB = calculate_main_head(DATAA[6], best[0], best[1])
         return best, PRINTA, PRINTB, PRINTC
 
     def show_results(self, results):
