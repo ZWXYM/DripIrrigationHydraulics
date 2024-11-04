@@ -368,7 +368,7 @@ class IrrigationApp(tk.Tk):
         best, PRINTA, PRINTB, PRINTC = results
         result_window = tk.Toplevel(self)
         result_window.title("优化结果")
-        result_window.geometry("700x800")
+        result_window.geometry("1000x800")
 
         text = tk.Text(result_window, wrap=tk.WORD)
         text.pack(expand=True, fill=tk.BOTH)
