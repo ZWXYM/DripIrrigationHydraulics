@@ -638,7 +638,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730742803293</updated>
     </task>
-    <option name="localTasksCounter" value="49" />
+    <task id="LOCAL-00049" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1730756230510</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1730756230510</updated>
+    </task>
+    <option name="localTasksCounter" value="50" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
