@@ -97,7 +97,7 @@ def calculate_head(sub_diameter, lateral_diameter, main_diameter, lateral_length
     sub_loss = sum(sub_losses) / len(sub_losses)
     dripper_loss = 10
     required_head = lateral_loss + sub_loss + dripper_loss
-    input_head = DATAA[28]
+    input_head = DATAA[17]
     # 同样修改这里
     main_losses = [pressure_loss(main_diameter, y, main_flow) for y in range(lgz2 * 400, 21 * 400 + 1, 100)]
     main_loss = sum(main_losses) / len(main_losses)
@@ -108,42 +108,17 @@ def calculate_head(sub_diameter, lateral_diameter, main_diameter, lateral_length
     sub_speed = water_speed(sub_diameter, sub_flow)
     lateral_speed = water_speed(lateral_diameter, lateral_flow)
     pressure = (required_head * 1e3 * 9.81) / 1000000
-    final_end_head = input_head-main_loss
+    final_end_head = input_head - main_loss
     PRINTA = [required_head, pressure, dripper_loss, lateral_loss, Re_lateral, lateral_loss, lateral_flow,
               lateral_speed, Re_sub, f_sub, sub_loss, sub_flow, sub_speed, Re_main, f_main, main_loss, main_flow,
               main_speed, final_end_head]
     return PRINTA
 
 
-def shuili(dripper_length, dripper_min_flow, fuzhu_sub_length, field_length, field_wide,
-           Soil_bulk_density, field_z, field_p, field_p_old, field_max, field_min, sr, st, ib, nn, work_time, lgz0,
-           lgz1, lgz2,
-           Full_field_long, Full_field_wide, dripper_distance, zhiguan):
-    total_plants = calculate_plant_count(field_length, fuzhu_sub_length, sr, st)
-    num_dripper = calculate_dripper_count(dripper_length * 2, fuzhu_sub_length, dripper_distance)
-    block_number = (Full_field_long / field_length) * ((Full_field_wide / 2) / field_wide)
-    fuzhu_number = field_wide / fuzhu_sub_length
-    plant = num_dripper / total_plants
-    mmax = (Soil_bulk_density * 1000) * field_z * field_p * (field_max - field_min) * field_p_old
-    # TMAX = mmax / ib
-    m1 = mmax / nn
-    if plant <= 1:
-        t = (m1 * dripper_spacing * dripper_distance) / (2.13 * dripper_min_flow)
-    else:
-        t = (m1 * sr * st) / plant * dripper_min_flow
-    T = t * math.ceil(fuzhu_number / lgz0) * math.ceil(block_number / lgz1) * math.ceil(zhiguan / lgz2) / work_time
-    total_water_v = num_dripper * dripper_min_flow * t / 1000
-    total_field_s = field_length * fuzhu_sub_length
-    water_z = (total_water_v / total_field_s) * 1000
-    TMAX = 2 * water_z / ib
-    PRANTB = [mmax, TMAX, t, T]
-    return PRANTB
-
-
 def guanjing(PRINTA, lgz1):
     # 初始化参数
     main_diameter = DATAA[6]  # 使用当前支管管径作为初始值
-    length = DATAA[27] * 2 * DATAA[10]  # 管道长度
+    length = DATAA[16] * 2 * DATAA[10]  # 管道长度
     flow_rate = PRINTA[11] * lgz1  # 管道流量
 
     # 初始化搜索参数
@@ -158,7 +133,7 @@ def guanjing(PRINTA, lgz1):
     while min_diameter <= diameter <= max_diameter and iteration_count < max_iterations:
         # 计算当前管径的水头损失
         head_loss = pressure_loss(diameter, length, flow_rate)
-        end_head = DATAA[28] - head_loss
+        end_head = DATAA[17] - head_loss
 
         if abs(end_head - PRINTA[0]) < 0.1:  # 如果误差在可接受范围内
             break
@@ -184,9 +159,9 @@ def guanjing(PRINTA, lgz1):
 
     # 确保最终结果满足水头要求
     final_head_loss = pressure_loss(diameter, length, flow_rate)
-    final_end_head = DATAA[28] - final_head_loss
+    final_end_head = DATAA[17] - final_head_loss
 
-    if final_end_head < DATAA[25]:
+    if final_end_head < DATAA[14]:
         diameter = min(diameter + step, max_diameter)  # 确保最终结果满足最小水头要求
 
     # 使用最终确定的管径重新计算水力参数
@@ -207,20 +182,15 @@ def guanjing(PRINTA, lgz1):
 def evaluate(individual):
     lgz1, lgz2 = map(int, individual)
     PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2], DATAA[3],
-                            DATAA[26], lgz1, lgz2)
+                            DATAA[15], lgz1, lgz2)
     required_head = PRINTA[0]
     main_loss = PRINTA[15]
     # 计算所需水头和灌水时间
-    PRANTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
-                    DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], DATAA[26], lgz1, lgz2,
-                    DATAA[22],
-                    DATAA[23], DATAA[3], DATAA[27])
-    T = PRANTB[3]
 
     # 计算目标函数值（水头比）
-    head_ratio = T + 0.5 * main_loss  # 检查约束条件
-    if required_head <= DATAA[24]:
-        if main_loss <= DATAA[25]:
+    head_ratio = 0.5 * main_loss  # 检查约束条件
+    if required_head <= DATAA[13]:
+        if main_loss <= DATAA[14]:
             return (head_ratio,)
         else:
             return (float('inf'),)
@@ -265,17 +235,6 @@ class IrrigationApp(tk.Tk):
             ('斗管长度(m)', 750, float),
             ('小地块y方向的长(m)', 100, float),
             ('小地块x方向的长(m)', 200, float),
-            ('土壤容重(g/cm3)', 1.46, float),
-            ('设计浸润深度(m)', 0.6, float),
-            ('设计土壤浸润比', 0.75, float),
-            ('土壤持水量', 0.28, float),
-            ('适宜土壤含水率上限', 0.9, float),
-            ('适宜土壤含水率下限', 0.7, float),
-            ('植物行距(m)', 0.8, float),
-            ('植物一行上株距(m)', 0.1, float),
-            ('设计耗水强度(mm)', 6, float),
-            ('灌水利用效率', 0.95, float),
-            ('日工作时长(h)', 20, float),
             ('地块全长(m)', 800, float),
             ('地块全宽(m)', 800, float),
             ('最远端滴灌带所需最小水头(m)', 20, float),
@@ -332,21 +291,17 @@ class IrrigationApp(tk.Tk):
 
         PRINTA = calculate_head(int(DATAA[4]), int(DATAA[5]), int(DATAA[6]), DATAA[7], DATAA[8], DATAA[0], DATAA[1],
                                 DATAA[2], DATAA[3],
-                                int(DATAA[26]), int(best[0]), int(best[1]))
-        PRINTB = shuili(DATAA[1], DATAA[0], DATAA[2], DATAA[9], DATAA[10], DATAA[11], DATAA[12], DATAA[13], DATAA[14],
-                        DATAA[15], DATAA[16], DATAA[17], DATAA[18], DATAA[19], DATAA[20], DATAA[21], int(DATAA[26]),
-                        int(best[0]),
-                        int(best[1]), DATAA[22], DATAA[23], DATAA[3], DATAA[27])
+                                int(DATAA[15]), int(best[0]), int(best[1]))
         # 在优化过程中调用
         DATAA[6] = guanjing(PRINTA, best[1])
 
         # 使用新的管径重新计算PRINTA
         PRINTA = calculate_head(DATAA[4], DATAA[5], DATAA[6], DATAA[7], DATAA[8], DATAA[0], DATAA[1], DATAA[2],
-                                DATAA[3], DATAA[26], best[0], best[1])
-        return best, PRINTA, PRINTB
+                                DATAA[3], DATAA[15], best[0], best[1])
+        return best, PRINTA
 
     def show_results(self, results):
-        best, PRINTA, PRINTB = results
+        best, PRINTA = results
         result_window = tk.Toplevel(self)
         result_window.title("优化结果")
         result_window.geometry("700x800")
@@ -380,8 +335,6 @@ class IrrigationApp(tk.Tk):
             ('支管水头损失', PRINTA[15], 'm'),
             ('支管轮灌最大流量', PRINTA[16], 'm³/s'),
             ('支管轮灌最大流速', PRINTA[17], 'm/s'),
-            ('设计灌水周期', PRINTB[1], '天'),
-            ('一次灌水延续时间', PRINTB[2], 'h'),
         ]:
             text.insert(tk.END, f"{label}: {value:.3f} {unit}\n")
 
@@ -425,24 +378,13 @@ if __name__ == "__main__":
 8. sub_length 750
 9. field_length 100
 10. field_wide 200
-11. Soil_bulk_density 1.46
-12. field_z 0.6
-13. field_p 0.75
-14. field_p_old 0.28
-15. field_max 0.9
-16. field_min 0.8
-17. sr 0.8
-18. st 0.1
-19. ib 6
-20. nn 0.95
-21. work_time 20
-22. Full_field_long 800
-23. Full_field_wide 800
-24. required_head_max 27
-25. main_loss_max 23
-26. lgz0 1
-27. douguan 22
-28. 支管入口处水头
+11. Full_field_long 800
+12. Full_field_wide 800
+13. required_head_max 27
+14. main_loss_max 23
+15. lgz0 1
+16. douguan 22
+17. 支管入口处水头
     PRINTA = calculate_head(160, 90, 500, 180, 750, 2.1, 50, 40, 0.8, 1, lgz1, lgz2)
     PRANTB = shuili(50, 2.1, 40, 100, 200, 1.46, 0.6, 0.75, 0.28, 0.9, 0.7, 0.8, 0.1, 6, 0.95, 20, 1, lgz1, lgz2, 800,800, 0.8)
     '''
