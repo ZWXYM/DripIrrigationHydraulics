@@ -110,48 +110,61 @@ def calculate_sub_head(lgz1, lgz2):
 
 # 新增：计算轮灌组分配
 def calculate_irrigation_groups(lgz2):
-    """计算轮灌组分配"""
-    total_nodes = 32
-    mid_point = 16
-    groups = []
+    """计算轮灌组分配
 
+    Args:
+        lgz2: 每个轮灌组包含的管道数量（必须为偶数）
+
+    Returns:
+        list: 轮灌组信息列表
+    """
     if lgz2 % 2 != 0:
         raise ValueError("轮灌组数量必须为偶数")
 
-    nodes_per_group = total_nodes // lgz2
-    remaining_nodes = total_nodes % lgz2
+    groups = []
+    nodes_per_group = lgz2 // 2  # 每组需要的节点数（因为每个节点连接上下两条管道）
+    remaining_nodes = list(range(1, 33))  # 所有需要灌溉的节点
+    group_id = 0
 
-    north_nodes = list(range(1, mid_point + 1))
-    south_nodes = list(range(mid_point + 1, total_nodes + 1))
+    while remaining_nodes:
+        # 如果剩余节点数量小于一个完整组所需的节点数
+        if len(remaining_nodes) < nodes_per_group:
+            # 将所有剩余节点放入最后一组
+            group = {
+                'group_id': group_id,
+                'nodes': remaining_nodes.copy(),
+                'is_special': True,
+                'sub_pipes_count': len(remaining_nodes) * 2  # 每个节点连接2条支管
+            }
+            groups.append(group)
+            break
 
-    for group_num in range(lgz2 // 2):
-        nodes_in_this_group = nodes_per_group
-        if group_num == (lgz2 // 2 - 1) and remaining_nodes > 0:
-            nodes_in_this_group += remaining_nodes
-
-        # 添加北边节点
-        north_group_nodes = north_nodes[:nodes_in_this_group // 2]
-        # 添加对应的南边节点
-        south_group_nodes = south_nodes[-nodes_in_this_group // 2:]
+        # 正常分组（从两端取节点）
+        front_nodes = remaining_nodes[:nodes_per_group // 2]  # 从前面取节点
+        back_nodes = remaining_nodes[-nodes_per_group // 2:]  # 从后面取节点
+        group_nodes = front_nodes + back_nodes
 
         group = {
-            'group_id': group_num,
-            'north_nodes': north_group_nodes,
-            'south_nodes': south_group_nodes,
-            'is_special': remaining_nodes > 0 and group_num == (lgz2 // 2 - 1)
+            'group_id': group_id,
+            'nodes': sorted(group_nodes),
+            'is_special': False,
+            'sub_pipes_count': len(group_nodes) * 2  # 每个节点连接2条支管
         }
         groups.append(group)
 
-        # 更新节点列表
-        north_nodes = north_nodes[nodes_in_this_group // 2:]
-        south_nodes = south_nodes[:-nodes_in_this_group // 2]
+        # 从剩余节点列表中移除已分配的节点
+        for node in group_nodes:
+            remaining_nodes.remove(node)
+
+        group_id += 1
 
     return groups
 
 
 # 新增：考虑对称开启的节点水头计算
 def calculate_node_heads_symmetric(lgz1, lgz2, main_diameter):
-    """计算考虑对称开启的节点水头"""
+    """计算节点水头"""
+    print("开始计算节点水头...")
     flow = calculate_flow_rates(lgz1, lgz2)
     main_flow = flow[3]
     input_head = DATAA[17]
@@ -160,24 +173,21 @@ def calculate_node_heads_symmetric(lgz1, lgz2, main_diameter):
 
     # 获取轮灌组信息
     irrigation_groups = calculate_irrigation_groups(lgz2)
+    print(f"计算得到 {len(irrigation_groups)} 个轮灌组")
 
     # 创建节点和管段列表
     nodes = []
     segments = []
 
-    # 计算每组的流量减少值
-    flow_per_group = main_flow / (lgz2 // 2)
+    # 计算每个sub管道分得的流量
+    flow_per_sub = main_flow / lgz2
+    print(f"每条支管分得流量: {flow_per_sub:.6f} m³/s")
 
-    # 初始化当前水头和流量
-    current_head = input_head
-    current_flow = main_flow
-
-    # 为每个节点创建初始信息
+    # 初始化所有节点信息
     for i in range(33):  # 0-32号节点
-        distance = i * segment_length
         node_info = {
             'node_id': i,
-            'distance': distance,
+            'distance': i * segment_length,
             'head': None,
             'flow': None,
             'is_active': False
@@ -187,17 +197,17 @@ def calculate_node_heads_symmetric(lgz1, lgz2, main_diameter):
     # 标记活跃节点
     active_nodes = set()
     for group in irrigation_groups:
-        for node_id in group['north_nodes'] + group['south_nodes']:
-            active_nodes.add(node_id)
-            nodes[node_id]['is_active'] = True
+        for node in group['nodes']:
+            active_nodes.add(node)
+            nodes[node]['is_active'] = True
+    print(f"标记了 {len(active_nodes)} 个活跃节点")
 
-    # 找出所有组的末端节点
-    group_end_nodes = set()
-    for group in irrigation_groups:
-        group_end_nodes.add(max(group['north_nodes'] + group['south_nodes']))
+    # 计算每段管道的流量和水头
+    current_flow = main_flow
+    current_head = input_head
 
-    # 从入口开始计算每个节点的水头和流量
-    for i in range(32):
+    print("开始计算管段水力特性...")
+    for i in range(32):  # 32个管段
         nodes[i]['flow'] = current_flow
         nodes[i]['head'] = current_head
 
@@ -205,9 +215,9 @@ def calculate_node_heads_symmetric(lgz1, lgz2, main_diameter):
         segment_loss = pressure_loss(main_diameter, segment_length, current_flow)
         current_head -= segment_loss
 
-        # 如果是轮灌组的末尾节点，减少流量
-        if i in group_end_nodes:
-            current_flow -= flow_per_group
+        # 如果当前节点是活跃的，减少相应的流量（每个活跃节点分走两份流量，对应上下两条支管）
+        if nodes[i]['is_active']:
+            current_flow -= flow_per_sub * 2
 
         segment_info = {
             'segment_id': i,
@@ -216,14 +226,20 @@ def calculate_node_heads_symmetric(lgz1, lgz2, main_diameter):
             'length': segment_length,
             'flow': current_flow,
             'head_loss': segment_loss,
-            'diameter': main_diameter
+            'diameter': main_diameter,
+            'is_active_start': nodes[i]['is_active'],
+            'is_active_end': nodes[i + 1]['is_active']
         }
         segments.append(segment_info)
+
+        if i % 8 == 0:  # 每计算8个管段输出一次进度
+            print(f"已完成管段 {i + 1}/32 的计算")
 
     # 设置最后一个节点的信息
     nodes[-1]['flow'] = current_flow
     nodes[-1]['head'] = current_head
 
+    print("节点水头计算完成！")
     return nodes, segments, irrigation_groups
 
 
@@ -683,7 +699,7 @@ class IrrigationApp(tk.Tk):
             return False
 
     def show_results(self, results):
-        """显示结果，添加进度提示"""
+        """修改显示逻辑，更清晰地展示轮灌组信息"""
         print("\n开始生成结果显示...")
         best, PRINTA, PRINTB, PRINTC, optimized_segments, irrigation_groups = results
 
@@ -715,10 +731,10 @@ class IrrigationApp(tk.Tk):
         text.insert(tk.END, "=== 轮灌组分配 ===\n\n")
         for group in irrigation_groups:
             text.insert(tk.END, f"轮灌组 {group['group_id'] + 1}:\n")
-            text.insert(tk.END, f"北边开启节点: {sorted(group['north_nodes'])}\n")
-            text.insert(tk.END, f"南边开启节点: {sorted(group['south_nodes'])}\n")
+            text.insert(tk.END, f"包含节点: {sorted(group['nodes'])}\n")
+            text.insert(tk.END, f"灌溉支管数量: {group['sub_pipes_count']}\n")
             if group['is_special']:
-                text.insert(tk.END, "（该组包含额外节点以减少轮灌组数量）\n")
+                text.insert(tk.END, "（该组为特殊组，包含剩余节点）\n")
             text.insert(tk.END, "\n")
 
         # Main管道分段优化结果
