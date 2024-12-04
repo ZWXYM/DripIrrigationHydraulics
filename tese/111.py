@@ -1,3 +1,11 @@
 import math
-print(math.ceil(48/0.3))
-print(50/0.3)
+
+a = 63
+jidian = math.ceil(a / 2)
+half_jidian = math.floor(jidian / 2)
+print(jidian, half_jidian)
+'''
+jd = math.ceil(DATAA[16] / 2)
+ha_jd = math.floor(jd)
+hf_hf_jd = math.floor(ha_jd)
+'''

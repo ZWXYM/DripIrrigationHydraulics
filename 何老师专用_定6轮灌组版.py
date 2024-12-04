@@ -639,7 +639,7 @@ class IrrigationApp(tk.Tk):
             traceback.print_exc()
 
     def optimize(self):
-        """优化函数"""
+        """优化函数，包含基础计算值"""
         print("\n开始优化过程...")
         random.seed(42)
         pop = self.toolbox.population(n=200)
@@ -658,6 +658,11 @@ class IrrigationApp(tk.Tk):
             best = hof[0]
             print(f"\n找到最优解: lgz1={best[0]}, lgz2={best[1]}")
 
+            # 计算基本水力特性
+            PRINTA = calculate_sub_head(best[0], best[1])
+            PRINTB = calculate_main_head(DATAA[6], best[0], best[1])
+            PRINTC = lgz_num_count(best[0], best[1])
+
             # 获取轮灌组信息
             irrigation_groups = calculate_irrigation_groups(best[1])
 
@@ -667,9 +672,9 @@ class IrrigationApp(tk.Tk):
 
             # 使用第一个轮灌组的流量分布优化管径
             first_group = irrigation_groups[0]
-            first_group_flow = {i: sub_flow * len(first_group['nodes']) * 2 for i in range(32)}
+            first_group_flow = {i: sub_flow * len(first_group['nodes']) * 2 for i in range(DATAA[16])}  # 使用总节点数
             for node in first_group['nodes']:
-                for i in range(node + 1, 32):
+                for i in range(node + 1, DATAA[16]):
                     first_group_flow[i] -= sub_flow * 2
 
             # 获取优化后的管径分布
@@ -686,7 +691,8 @@ class IrrigationApp(tk.Tk):
                     group, sub_flow, optimized_diameters, DATAA[17], DATAA[7])
                 all_groups_results.append((group, group_segments))
 
-            return best, all_groups_results
+            # 返回所有计算结果
+            return best, all_groups_results, PRINTA, PRINTB, PRINTC
 
         except Exception as e:
             print(f"\n优化过程中出现错误: {str(e)}")
@@ -694,9 +700,9 @@ class IrrigationApp(tk.Tk):
             raise
 
     def show_results(self, results):
-        """显示优化结果"""
+        """显示优化结果，包含基础计算值"""
         print("\n开始生成结果显示...")
-        best, all_groups_results = results
+        best, all_groups_results, PRINTA, PRINTB, PRINTC = results
 
         result_window = tk.Toplevel(self)
         result_window.title("优化结果")
@@ -716,12 +722,60 @@ class IrrigationApp(tk.Tk):
         # 显示基本优化结果
         text.insert(tk.END, "=== 基本优化结果 ===\n\n")
         text.insert(tk.END, f"每斗管上开启的农管数量: {best[0]}\n")
-        text.insert(tk.END, f"每支管上开启的斗管数量: {best[1]}\n\n")
+        text.insert(tk.END, f"每支管上开启的斗管数量: {best[1]}\n")
+        text.insert(tk.END, f"完成灌溉预计时间: {PRINTC[3]:.2f} 天\n")
+        text.insert(tk.END, f"最佳适应度: {best.fitness.values[0]:.4f}\n\n")
 
-        # 显示每个轮灌组的详细结果
+        # 显示基础水力计算结果
+        text.insert(tk.END, "=== 基础水力计算结果 ===\n\n")
+        basic_results = [
+            ('最远端滴灌带所需水头', PRINTA[0], 'm'),
+            ('最远端滴灌带所需压力', PRINTA[1], 'MPa'),
+            ('滴灌带水头', PRINTA[2], 'm'),
+            ('单条农管入口所需水头', PRINTA[3] + PRINTA[2], 'm'),
+            ('农管雷诺数', PRINTA[4], ''),
+            ('农管沿程阻力系数', PRINTA[5], ''),
+            ('农管水头损失', PRINTA[3], 'm'),
+            ('农管轮灌最大流量', PRINTA[6], 'm³/s'),
+            ('农管轮灌最大流速', PRINTA[7], 'm/s'),
+            ('斗管雷诺数', PRINTA[8], ''),
+            ('斗管沿程阻力系数', PRINTA[9], ''),
+            ('斗管水头损失', PRINTA[10], 'm'),
+            ('斗管轮灌最大流量', PRINTA[11], 'm³/s'),
+            ('斗管第一段轮灌最大流速', PRINTA[12], 'm/s'),
+            ('斗管第二段轮灌最大流速', PRINTA[13], 'm/s'),
+        ]
+
+        for label, value, unit in basic_results:
+            text.insert(tk.END, f"{label}: {value:.3f} {unit}\n")
+        text.insert(tk.END, "\n")
+
+        # 显示每个轮灌组的结果
+        text.insert(tk.END, "=== 轮灌组详细结果 ===\n\n")
         for group, segments in all_groups_results:
-            group_results = format_group_results(group, segments)
-            text.insert(tk.END, group_results)
+            # 显示轮灌组基本信息
+            text.insert(tk.END, f"轮灌组 {group['group_id'] + 1}")
+            if group['is_special']:
+                text.insert(tk.END, " (特殊组)")
+            text.insert(tk.END, "\n")
+            text.insert(tk.END, f"活跃节点: {sorted(group['nodes'])}\n")
+            text.insert(tk.END, f"支管数量: {group['sub_pipes_count']}\n\n")
+
+            # 显示管段详细信息
+            header = (f"{'管段编号':^8} {'距起点(m)':^12} {'管径(mm)':^10} {'起点水头(m)':^12} "
+                      f"{'终点水头(m)':^12} {'流量(m³/s)':^12} {'流速(m/s)':^10} "
+                      f"{'水头损失(m)':^12} {'节点状态':^10}\n")
+            text.insert(tk.END, header)
+            text.insert(tk.END, "=" * 110 + "\n")
+
+            for segment in segments:
+                line = (f"{segment['segment_id']:^8d} {segment['distance']:^12.1f} "
+                        f"{segment['diameter']:^10.0f} {segment['start_head']:^12.2f} "
+                        f"{segment['end_head']:^12.2f} {segment['flow']:^12.6f} "
+                        f"{segment['velocity']:^10.2f} {segment['head_loss']:^12.2f} "
+                        f"{'活跃' if segment['is_active'] else '非活跃':^10s}\n")
+                text.insert(tk.END, line)
+
             text.insert(tk.END, "\n")
 
         # 添加导出按钮

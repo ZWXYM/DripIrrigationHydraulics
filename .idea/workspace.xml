@@ -5,8 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <change afterPath="$PROJECT_DIR$/irrigation_results_20241105_071355.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/丰字_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/何老师专用_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/何老师专用_定6轮灌组版.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/何老师专用_try.py" beforeDir="false" afterPath="$PROJECT_DIR$/何老师专用_try.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tese/111.py" beforeDir="false" afterPath="$PROJECT_DIR$/tese/111.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/何老师专用_try.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -88,9 +94,12 @@
     "Python.test3.executor": "Run",
     "Python.test4.executor": "Run",
     "Python.test5.executor": "Run",
+    "Python.丰字_test.executor": "Run",
     "Python.主要参数.executor": "Run",
     "Python.何老师专用.executor": "Run",
+    "Python.何老师专用_test.executor": "Run",
     "Python.何老师专用_try.executor": "Run",
+    "Python.何老师专用_定6轮灌组版.executor": "Run",
     "Python.滴灌设计计算器.executor": "Run",
     "Python.田间2024.5.10.executor": "Run",
     "Python.田间2024.6.14备.executor": "Run",
@@ -114,29 +123,7 @@
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\tese" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.何老师专用_try">
-    <configuration name="何老师专用" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="GA_test" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/何老师专用.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
+  <component name="RunManager" selected="Python.何老师专用_test">
     <configuration name="11.2" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="GA_test" />
       <option name="ENV_FILES" value="" />
@@ -181,7 +168,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="何老师专用_try" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="何老师专用_定6轮灌组版" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="GA_test" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -194,7 +181,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/何老师专用_try.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/何老师专用_定6轮灌组版.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -203,7 +190,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="hanshu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="何老师专用_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="GA_test" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -216,7 +203,29 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hanshu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/何老师专用_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="丰字_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="GA_test" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/丰字_test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -227,11 +236,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.何老师专用_try" />
-        <item itemvalue="Python.何老师专用" />
-        <item itemvalue="Python.TEST1" />
+        <item itemvalue="Python.何老师专用_test" />
+        <item itemvalue="Python.何老师专用_定6轮灌组版" />
+        <item itemvalue="Python.丰字_test" />
         <item itemvalue="Python.11.2" />
-        <item itemvalue="Python.hanshu" />
+        <item itemvalue="Python.TEST1" />
       </list>
     </recent_temporary>
   </component>
@@ -253,14 +262,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1712844177018</updated>
-    </task>
-    <task id="LOCAL-00001" summary="Changes">
-      <option name="closed" value="true" />
-      <created>1725882469358</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1725882469358</updated>
     </task>
     <task id="LOCAL-00002" summary="Changes">
       <option name="closed" value="true" />
@@ -646,7 +647,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730756230510</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1730759350838</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1730759350838</updated>
+    </task>
+    <option name="localTasksCounter" value="51" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
