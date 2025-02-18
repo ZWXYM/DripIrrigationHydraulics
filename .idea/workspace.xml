@@ -5,219 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/1.19.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/1.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/5.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/6-王亚菲 中期汇报.pptx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/6.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/index.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_001.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_002.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_003.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_004.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_005.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_006.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_007.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_008.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_009.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_010.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_011.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_012.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_013.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_014.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_015.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_016.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_017.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_018.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_019.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_020.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_021.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_022.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_023.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_024.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_025.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_026.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_027.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_028.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_029.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_030.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_031.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_032.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_033.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_034.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_035.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_036.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_037.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_038.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_039.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_040.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_041.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_042.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_043.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_044.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_045.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_046.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_047.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_048.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_049.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_050.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_051.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_052.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_053.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_054.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_055.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_056.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_057.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_058.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_059.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_060.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_061.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_062.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_063.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_064.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_065.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_066.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_067.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_068.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_069.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_070.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_071.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_072.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_073.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_074.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_075.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_076.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_077.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_078.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_079.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_080.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_081.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_082.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_083.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_084.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_085.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_086.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_087.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_088.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_089.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_090.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_091.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_092.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_093.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_094.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_095.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_096.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_097.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_098.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_099.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/NSGA/solution_100.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/index.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_001.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_002.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_003.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_004.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_005.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_006.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_007.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_008.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_009.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_010.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_011.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_012.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_013.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_014.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_015.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_016.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_017.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_018.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_019.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_020.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_021.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_022.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_023.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_024.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_025.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_026.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_027.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_028.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_029.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_030.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_031.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_032.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_033.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_034.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_035.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_036.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_037.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_038.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_039.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_040.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_041.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_042.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_043.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_044.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_045.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_046.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_047.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_048.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_049.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_050.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_051.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_052.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_053.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_054.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_055.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_056.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_057.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_058.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_059.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_060.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_061.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_062.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_063.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_064.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_065.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_066.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_067.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_068.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_069.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_070.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_071.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_072.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_073.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_074.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_075.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_076.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_077.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_078.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_079.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_080.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_081.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_082.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_083.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_084.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/PSO/solution_085.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/extract_pareto.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/optimization_logbook.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/optimization_pareto.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/optimization_results.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/pareto_solutions.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/pareto_solutions_summary.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/pipe_configurations.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/单侧方案.zip" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/原方案均方差.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/NSGAⅡ/需求.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/NSGAⅡ/1optimization_results.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/NSGAⅡ/2.20.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/NSGAⅡ/optimization_results (2).txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/NSGAⅡ/新建 文本文档.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PSO/3.6.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PSO/extract_pareto_PSO.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PSO/shuang3.6.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/NSGAⅡ/3.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/3.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/NSGAⅡ/4.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/4.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/NSGAⅡ/7.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/7.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tese/111.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tese/final_symmetric_triangle_with_circles.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tese/test1.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tese/test2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/11.2.py" beforeDir="false" afterPath="$PROJECT_DIR$/11.2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NSGAⅡ/3.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/轮灌组优化.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NSGAⅡ/extract_pareto.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/extract_pareto.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NSGAⅡ/optimization_results.txt" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/optimization_results.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NSGAⅡ/需求.txt" beforeDir="false" afterPath="$PROJECT_DIR$/NSGAⅡ/需求.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -278,62 +79,68 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Python.1.9.executor": "Run",
-    "Python.1.executor": "Run",
-    "Python.11.2.executor": "Run",
-    "Python.111.executor": "Run",
-    "Python.2.executor": "Run",
-    "Python.3.executor": "Run",
-    "Python.4.executor": "Run",
-    "Python.5.executor": "Run",
-    "Python.6.executor": "Run",
-    "Python.7.executor": "Run",
-    "Python.9.1.executor": "Run",
-    "Python.9.10.executor": "Run",
-    "Python.9.15.executor": "Run",
-    "Python.9.15备.executor": "Run",
-    "Python.9.1简.executor": "Run",
-    "Python.9.23 - Copy.executor": "Run",
-    "Python.9.23.executor": "Run",
-    "Python.TEST1.executor": "Run",
-    "Python.extract_pareto (1).executor": "Run",
-    "Python.extract_pareto(1).executor": "Run",
-    "Python.extract_pareto.executor": "Run",
-    "Python.hanshu.executor": "Run",
-    "Python.python extract_pareto.executor": "Run",
-    "Python.test.executor": "Run",
-    "Python.test1.executor": "Run",
-    "Python.test2.executor": "Run",
-    "Python.test3.executor": "Run",
-    "Python.test4.executor": "Run",
-    "Python.test5.executor": "Run",
-    "Python.丰字_test (1).executor": "Run",
-    "Python.丰字_test.executor": "Run",
-    "Python.主要参数.executor": "Run",
-    "Python.何老师专用.executor": "Run",
-    "Python.何老师专用_test.executor": "Run",
-    "Python.何老师专用_try.executor": "Run",
-    "Python.何老师专用_定6轮灌组版.executor": "Run",
-    "Python.滴灌设计计算器.executor": "Run",
-    "Python.田间2024.5.10.executor": "Run",
-    "Python.田间2024.6.14备.executor": "Run",
-    "Python.田间2024.6.14改.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "master",
-    "ignore_missing_gitignore": "true",
-    "last_opened_file_path": "C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ",
-    "settings.editor.selected.configurable": "debugger.dataViews.python.type.renderers",
-    "two.files.diff.last.used.file": "C:/Users/10760/Desktop/guanwang/GA_1/GA_test/tese/1.py"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Python.1.9.executor&quot;: &quot;Run&quot;,
+    &quot;Python.1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.11.2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.111.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.20.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.26.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.3.6.executor&quot;: &quot;Run&quot;,
+    &quot;Python.3.executor&quot;: &quot;Run&quot;,
+    &quot;Python.4.executor&quot;: &quot;Run&quot;,
+    &quot;Python.5.executor&quot;: &quot;Run&quot;,
+    &quot;Python.6.executor&quot;: &quot;Run&quot;,
+    &quot;Python.7.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.10.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.15.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.15备.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.1简.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.23 - Copy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.23.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TEST1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto(1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hanshu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.python extract_pareto.executor&quot;: &quot;Run&quot;,
+    &quot;Python.shuang2.20.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test3.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test4.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test5.executor&quot;: &quot;Run&quot;,
+    &quot;Python.丰字_test (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.丰字_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.主要参数.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_try.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_定6轮灌组版.executor&quot;: &quot;Run&quot;,
+    &quot;Python.滴灌设计计算器.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.5.10.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.6.14备.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.6.14改.executor&quot;: &quot;Run&quot;,
+    &quot;Python.轮灌组优化 (1).executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore_missing_gitignore&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;debugger.dataViews.python.type.renderers&quot;,
+    &quot;two.files.diff.last.used.file&quot;: &quot;C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\PSO" />
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\NSGAⅡ" />
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test" />
       <recent name="C:\Users\10760\Desktop\1" />
@@ -342,31 +149,9 @@
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\tese" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.extract_pareto">
-    <configuration name="11.2" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="GA_test" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/11.2.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="1.9" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="GA_test" />
+  <component name="RunManager" selected="Python.3.6">
+    <configuration name="2.20" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IrriOpt" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -378,7 +163,51 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/1.9.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/2.20.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="2.26" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/NSGAⅡ" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/2.26.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="3.6" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/PSO" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/PSO/3.6.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -388,7 +217,7 @@
       <method v="2" />
     </configuration>
     <configuration name="9.1简" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="GA_test" />
+      <module name="IrriOpt" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -409,8 +238,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="extract_pareto (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="GA_test" />
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <module name="IrriOpt" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -418,11 +247,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/NSGAⅡ" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/extract_pareto.py" />
+      <option name="SCRIPT_NAME" value="" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -431,8 +260,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="extract_pareto" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="GA_test" />
+    <configuration name="shuang2.20" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IrriOpt" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -444,29 +273,109 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/extract_pareto.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSGAⅡ/shuang2.20.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
       <option name="REDIRECT_INPUT" value="false" />
       <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="Tox" factoryName="Tox">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docs" factoryName="Docutils task">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="docutils_input_file" value="" />
+      <option name="docutils_output_file" value="" />
+      <option name="docutils_params" value="" />
+      <option name="docutils_task" value="" />
+      <option name="docutils_open_in_browser" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docs" factoryName="Sphinx task">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="docutils_input_file" value="" />
+      <option name="docutils_output_file" value="" />
+      <option name="docutils_params" value="" />
+      <option name="docutils_task" value="" />
+      <option name="docutils_open_in_browser" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Autodetect">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Doctests">
+      <module name="IrriOpt" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.11.2" />
+      <item itemvalue="Python.2.20" />
+      <item itemvalue="Python.2.26" />
+      <item itemvalue="Python.3.6" />
       <item itemvalue="Python.9.1简" />
-      <item itemvalue="Python.1.9" />
-      <item itemvalue="Python.extract_pareto" />
-      <item itemvalue="Python.extract_pareto (1)" />
+      <item itemvalue="Python.shuang2.20" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.extract_pareto" />
+        <item itemvalue="Python.3.6" />
+        <item itemvalue="Python.2.20" />
         <item itemvalue="Python.9.1简" />
-        <item itemvalue="Python.11.2" />
-        <item itemvalue="Python.1.9" />
-        <item itemvalue="Python.extract_pareto (1)" />
+        <item itemvalue="Python.shuang2.20" />
+        <item itemvalue="Python.2.26" />
       </list>
     </recent_temporary>
   </component>
@@ -488,22 +397,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1712844177018</updated>
-    </task>
-    <task id="LOCAL-00015" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <option name="closed" value="true" />
-      <created>1726062518837</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1726062518837</updated>
-    </task>
-    <task id="LOCAL-00016" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <option name="closed" value="true" />
-      <created>1726062525185</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1726062525185</updated>
     </task>
     <task id="LOCAL-00017" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
       <option name="closed" value="true" />
@@ -881,7 +774,23 @@
       <option name="project" value="LOCAL" />
       <updated>1736849278044</updated>
     </task>
-    <option name="localTasksCounter" value="64" />
+    <task id="LOCAL-00064" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1739846597112</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1739846597112</updated>
+    </task>
+    <task id="LOCAL-00065" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1739846841121</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1739846841121</updated>
+    </task>
+    <option name="localTasksCounter" value="66" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
