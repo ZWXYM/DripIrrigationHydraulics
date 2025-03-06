@@ -787,7 +787,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     return multi_objective_pso(irrigation_system, lgz1, lgz2)
 
 
-def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2, output_file="optimization_results.txt"):
+def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2, output_file="optimization_results_PSO_DAN.txt"):
     """
     打印优化后的详细结果
     best_particle: 对于PSO算法，这是一个Particle对象

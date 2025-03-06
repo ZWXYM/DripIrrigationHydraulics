@@ -165,7 +165,7 @@ if __name__ == "__main__":
 
     # 创建灌溉系统
     irrigation_system = original_program.IrrigationSystem(
-        node_count=23,
+        node_count=32,
     )
 
     # 执行优化并获取帕累托前沿
