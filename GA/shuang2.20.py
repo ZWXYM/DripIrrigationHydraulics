@@ -562,7 +562,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=1000)
+    population = toolbox.population(n=100)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -581,7 +581,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     logbook.record(gen=0, **record)
 
     # 演化过程
-    for gen in range(1, 50):
+    for gen in range(1, 100):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
@@ -687,14 +687,15 @@ def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
 
         # 输出系统经济指标
         total_cost = irrigation_system.get_system_cost()
-        total_long = sum(seg['length'] for seg in irrigation_system.main_pipe)
-        irrigation_area = (irrigation_system.node_count + 1) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH
-        cost_per_area = total_cost / irrigation_area
+        total_long = sum(seg['length'] for seg in irrigation_system.main_pipe)-DEFAULT_NODE_SPACING
+        irrigation_area = (irrigation_system.node_count) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH * 2
+        change_area = irrigation_area / (2000 / 3)
+        cost_per_area = total_cost / change_area
 
         write_line("\n=== 系统总体信息 ===")
         write_line(f"系统总成本: {total_cost:.2f} 元")
-        write_line(f"灌溉面积: {irrigation_area:.1f} m²")
-        write_line(f"单位面积成本: {cost_per_area:.2f} 元/m²")
+        write_line(f"灌溉面积: {change_area:.1f} 亩")
+        write_line(f"单位面积成本: {cost_per_area:.2f} 元/亩")
         write_line(f"总轮灌组数: {len(irrigation_system.irrigation_groups)}")
         write_line(f"管网总长度: {total_long:.1f} m")
 
@@ -720,7 +721,7 @@ def visualize_pareto_front(pareto_front):
         plt.figure(figsize=(10, 6), dpi=100)
         plt.scatter(costs, variances, c='blue', marker='o', s=50, alpha=0.6, label='Pareto解')
 
-        plt.title('管网优化Pareto前沿', fontsize=12, pad=15)
+        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
         plt.xlabel('系统成本', fontsize=10)
         plt.ylabel('压力方差', fontsize=10)
         plt.grid(True, linestyle='--', alpha=0.7)

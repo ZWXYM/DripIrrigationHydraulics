@@ -5,11 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <change beforePath="$PROJECT_DIR$/../IrriOpt/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../IrriOpt/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../IrriOpt/PSO/3.6.py" beforeDir="false" afterPath="$PROJECT_DIR$/../IrriOpt/PSO/3.6.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../IrriOpt/PSO/extract_pareto_PSO.py" beforeDir="false" afterPath="$PROJECT_DIR$/../IrriOpt/PSO/extract_pareto_PSO.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../IrriOpt/PSO/optimization_results.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../IrriOpt/PSO/shuang3.6.py" beforeDir="false" afterPath="$PROJECT_DIR$/../IrriOpt/PSO/shuang3.6.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GA/2.20.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/2.20.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GA/shuang2.20.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/shuang2.20.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PSO/3.6.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/3.6.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PSO/shuang3.6.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/shuang3.6.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +40,7 @@
         <option name="title" value="All" />
       </GitPushTagMode>
     </option>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../IrriOpt" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -75,65 +74,65 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Python.1.9.executor": "Run",
-    "Python.1.executor": "Run",
-    "Python.11.2.executor": "Run",
-    "Python.111.executor": "Run",
-    "Python.2.20.executor": "Run",
-    "Python.2.26.executor": "Run",
-    "Python.2.executor": "Run",
-    "Python.3.6.executor": "Run",
-    "Python.3.executor": "Run",
-    "Python.4.executor": "Run",
-    "Python.5.executor": "Run",
-    "Python.6.executor": "Run",
-    "Python.7.executor": "Run",
-    "Python.9.1.executor": "Run",
-    "Python.9.10.executor": "Run",
-    "Python.9.15.executor": "Run",
-    "Python.9.15备.executor": "Run",
-    "Python.9.1简.executor": "Run",
-    "Python.9.23 - Copy.executor": "Run",
-    "Python.9.23.executor": "Run",
-    "Python.TEST1.executor": "Run",
-    "Python.extract_pareto (1).executor": "Run",
-    "Python.extract_pareto(1).executor": "Run",
-    "Python.extract_pareto.executor": "Run",
-    "Python.hanshu.executor": "Run",
-    "Python.python extract_pareto.executor": "Run",
-    "Python.shuang2.20.executor": "Run",
-    "Python.test.executor": "Run",
-    "Python.test1.executor": "Run",
-    "Python.test2.executor": "Run",
-    "Python.test3.executor": "Run",
-    "Python.test4.executor": "Run",
-    "Python.test5.executor": "Run",
-    "Python.丰字_test (1).executor": "Run",
-    "Python.丰字_test.executor": "Run",
-    "Python.主要参数.executor": "Run",
-    "Python.何老师专用.executor": "Run",
-    "Python.何老师专用_test.executor": "Run",
-    "Python.何老师专用_try.executor": "Run",
-    "Python.何老师专用_定6轮灌组版.executor": "Run",
-    "Python.滴灌设计计算器.executor": "Run",
-    "Python.田间2024.5.10.executor": "Run",
-    "Python.田间2024.6.14备.executor": "Run",
-    "Python.田间2024.6.14改.executor": "Run",
-    "Python.轮灌组优化 (1).executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "main",
-    "ignore_missing_gitignore": "true",
-    "last_opened_file_path": "C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py",
-    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
-    "two.files.diff.last.used.file": "C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Python.1.9.executor&quot;: &quot;Run&quot;,
+    &quot;Python.1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.11.2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.111.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.20.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.26.executor&quot;: &quot;Run&quot;,
+    &quot;Python.2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.3.6.executor&quot;: &quot;Run&quot;,
+    &quot;Python.3.executor&quot;: &quot;Run&quot;,
+    &quot;Python.4.executor&quot;: &quot;Run&quot;,
+    &quot;Python.5.executor&quot;: &quot;Run&quot;,
+    &quot;Python.6.executor&quot;: &quot;Run&quot;,
+    &quot;Python.7.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.10.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.15.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.15备.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.1简.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.23 - Copy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.9.23.executor&quot;: &quot;Run&quot;,
+    &quot;Python.TEST1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto(1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_pareto.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hanshu.executor&quot;: &quot;Run&quot;,
+    &quot;Python.python extract_pareto.executor&quot;: &quot;Run&quot;,
+    &quot;Python.shuang2.20.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test3.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test4.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test5.executor&quot;: &quot;Run&quot;,
+    &quot;Python.丰字_test (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.丰字_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.主要参数.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_try.executor&quot;: &quot;Run&quot;,
+    &quot;Python.何老师专用_定6轮灌组版.executor&quot;: &quot;Run&quot;,
+    &quot;Python.滴灌设计计算器.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.5.10.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.6.14备.executor&quot;: &quot;Run&quot;,
+    &quot;Python.田间2024.6.14改.executor&quot;: &quot;Run&quot;,
+    &quot;Python.轮灌组优化 (1).executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore_missing_gitignore&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
+    &quot;two.files.diff.last.used.file&quot;: &quot;C:/Users/10760/Desktop/guanwang/GA_1/GA_test/NSGAⅡ/2.20.py&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\PSO" />
@@ -804,7 +803,7 @@
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <ignored-roots>
       <path value="$PROJECT_DIR$" />
-      <path value="$PROJECT_DIR$/../IrriOpt/NSGAⅡ" />
+      <path value="$PROJECT_DIR$/NSGAⅡ" />
     </ignored-roots>
     <MESSAGE value="Changes" />
     <MESSAGE value="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a." />

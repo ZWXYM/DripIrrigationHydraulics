@@ -446,7 +446,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterations=50):
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=100):
     """多目标PSO优化函数"""
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
@@ -878,14 +878,15 @@ def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2, output_
 
         # 输出系统经济指标
         total_cost = irrigation_system.get_system_cost()
-        total_long = sum(seg['length'] for seg in irrigation_system.main_pipe)
-        irrigation_area = (irrigation_system.node_count + 1) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH
-        cost_per_area = total_cost / irrigation_area
+        total_long = sum(seg['length'] for seg in irrigation_system.main_pipe) - DEFAULT_NODE_SPACING
+        irrigation_area = (irrigation_system.node_count) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH * 2
+        change_area = irrigation_area / (2000 / 3)
+        cost_per_area = total_cost / change_area
 
         write_line("\n=== 系统总体信息 ===")
         write_line(f"系统总成本: {total_cost:.2f} 元")
-        write_line(f"灌溉面积: {irrigation_area:.1f} m²")
-        write_line(f"单位面积成本: {cost_per_area:.2f} 元/m²")
+        write_line(f"灌溉面积: {change_area:.1f} 亩")
+        write_line(f"单位面积成本: {cost_per_area:.2f} 元/亩")
         write_line(f"总轮灌组数: {len(irrigation_system.irrigation_groups)}")
         write_line(f"管网总长度: {total_long:.1f} m")
 
