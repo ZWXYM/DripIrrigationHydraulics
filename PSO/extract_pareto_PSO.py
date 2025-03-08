@@ -158,7 +158,7 @@ def decode_pipe_configuration(individual, irrigation_system, pipe_specs):
 
 if __name__ == "__main__":
     # 加载原始程序
-    original_program = SourceFileLoader("original", "3.6.py").load_module()  # 确保这里使用PSO版本文件名
+    original_program = SourceFileLoader("original", "PSO.py").load_module()  # 确保这里使用PSO版本文件名
 
     # 设置随机种子以确保结果可重复
     np.random.seed(42)

@@ -158,7 +158,7 @@ def decode_pipe_configuration(individual, irrigation_system, pipe_specs):
 
 if __name__ == "__main__":
     # 加载原始程序
-    original_program = SourceFileLoader("original", "2.20.py").load_module()
+    original_program = SourceFileLoader("original", "NSGA.py").load_module()
 
     # 设置随机种子以确保结果可重复
     np.random.seed(42)
