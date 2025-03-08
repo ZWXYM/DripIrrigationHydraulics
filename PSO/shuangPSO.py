@@ -319,7 +319,9 @@ class IrrigationSystem:
         if not pressures:
             return 0
         mean_pressure = sum(pressures) / len(pressures)
-        return sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
+        FC = sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
+        JFC = FC ** 0.5
+        return JFC
 
     def _check_pressure_requirements(self):
         """检查压力要求满足情况"""

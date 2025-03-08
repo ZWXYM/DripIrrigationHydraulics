@@ -4,11 +4,8 @@ import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from deap import base, creator, tools, algorithms
-import threading
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
@@ -323,7 +320,9 @@ class IrrigationSystem:
         if not pressures:
             return 0
         mean_pressure = sum(pressures) / len(pressures)
-        return sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
+        FC = sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
+        JFC = FC ** 0.5
+        return JFC
 
     def _check_pressure_requirements(self):
         """检查压力要求满足情况"""
@@ -394,7 +393,6 @@ class IrrigationSystem:
                         "flow_rate": 0.0
                     })
         return drip_lines
-
 
 class NSGAOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -1109,6 +1107,7 @@ def select_best_solution_by_marginal_improvement(solutions):
 
         # 计算边际改进率
         if cost_diff < 0:
+            # 方差减少量/成本增加量的绝对值
             marginal_improvement = variance_diff / abs(cost_diff)
             marginal_improvements.append((i, marginal_improvement))
 
@@ -1116,7 +1115,7 @@ def select_best_solution_by_marginal_improvement(solutions):
     if not marginal_improvements:
         return sorted_solutions[0]
 
-    # 找出边际改进率最大的解
+    # 找出边际改进率最大的解（方差变化为负值时，寻找最小值）
     best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
 
     # 返回该解
@@ -1146,6 +1145,7 @@ def main():
         if pareto_front:
             valid_solutions = [ind for ind in pareto_front if np.all(np.isfinite(ind.fitness.values))]
             if valid_solutions:
+                # 修改选择最优解的方法
                 best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
                 print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
 
