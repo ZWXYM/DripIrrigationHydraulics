@@ -758,7 +758,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=60, show_plots=True,
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=50, show_plots=True,
                         auto_save=False):
     """多目标PSO优化函数"""
     # 创建跟踪器
