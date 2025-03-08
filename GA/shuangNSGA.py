@@ -4,11 +4,8 @@ import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from deap import base, creator, tools, algorithms
-import threading
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
@@ -396,7 +393,6 @@ class IrrigationSystem:
                         "flow_rate": 0.0
                     })
         return drip_lines
-
 
 class NSGAOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -882,7 +878,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=100)
+    population = toolbox.population(n=1000)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)

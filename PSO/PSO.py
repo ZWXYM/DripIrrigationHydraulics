@@ -321,7 +321,7 @@ class IrrigationSystem:
             return 0
         mean_pressure = sum(pressures) / len(pressures)
         FC = sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
-        JFC = FC**0.5
+        JFC = FC ** 0.5
         return JFC
 
     def _check_pressure_requirements(self):
@@ -758,7 +758,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=100, show_plots=True,
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=60, show_plots=True,
                         auto_save=False):
     """多目标PSO优化函数"""
     # 创建跟踪器
@@ -1355,7 +1355,7 @@ def main():
         for i, fig in enumerate(figures):
             try:
                 fig.savefig(f'PSO_optimization_result_fig{i}.png', dpi=300, bbox_inches='tight')
-                logging.info(f"图表{i}已保存为 PSO_optimization_result_fig{i}.png")
+                logging.info(f"图表{i}已保存为 PSO_DAN_result_fig{i}.png")
             except Exception as e:
                 logging.warning(f"保存图表{i}时出错: {e}")
 

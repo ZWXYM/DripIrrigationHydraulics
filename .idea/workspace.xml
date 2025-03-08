@@ -5,15 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_2d_curves.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_3d_progress.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_optimization_result_fig0.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_optimization_result_fig1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_optimization_result_fig2.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PSO/PSO_pareto_front.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/GA/NSGA.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/NSGA.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GA/shuangNSGA.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/shuangNSGA.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PSO/PSO.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/PSO.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PSO/shuangPSO.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/shuangPSO.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -139,9 +135,9 @@
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "main",
     "ignore_missing_gitignore": "true",
-    "last_opened_file_path": "C:/Users/10760/Desktop/guanwang/GA_1/IrriOpt/GA/NSGA.py",
+    "last_opened_file_path": "C:/Users/10760/Desktop/guanwang/GA_1/IrriOpt/GA/shuangNSGA.py",
     "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
-    "two.files.diff.last.used.file": "C:/Users/10760/Desktop/guanwang/GA_1/IrriOpt/GA/NSGA.py"
+    "two.files.diff.last.used.file": "C:/Users/10760/Desktop/guanwang/GA_1/IrriOpt/GA/shuangNSGA.py"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -156,7 +152,7 @@
       <recent name="C:\Users\10760\Desktop\guanwang\GA_1\GA_test\tese" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.PSO">
+  <component name="RunManager" selected="Python.NSGA (1)">
     <configuration name="1" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="IrriOpt" />
       <option name="ENV_FILES" value="" />
@@ -276,10 +272,10 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.PSO" />
         <item itemvalue="Python.NSGA (1)" />
-        <item itemvalue="Python.shuangPSO" />
         <item itemvalue="Python.shuangNSGA" />
+        <item itemvalue="Python.PSO" />
+        <item itemvalue="Python.shuangPSO" />
         <item itemvalue="Python.1" />
       </list>
     </recent_temporary>
@@ -302,14 +298,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1712844177018</updated>
-    </task>
-    <task id="LOCAL-00024" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <option name="closed" value="true" />
-      <created>1726417680660</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1726417680660</updated>
     </task>
     <task id="LOCAL-00025" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
       <option name="closed" value="true" />
@@ -695,7 +683,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741462543358</updated>
     </task>
-    <option name="localTasksCounter" value="73" />
+    <task id="LOCAL-00073" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1741465658442</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1741465658442</updated>
+    </task>
+    <option name="localTasksCounter" value="74" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
