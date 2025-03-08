@@ -6,6 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from deap import base, creator, tools, algorithms
+import threading
+import tkinter as tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
@@ -315,7 +318,7 @@ class IrrigationSystem:
 
     def _get_pressure_variance(self):
         """计算富裕水头方差"""
-        pressures = [submain["outlet_pressure"] - PRESSURE_BASELINE
+        pressures = [submain["inlet_pressure"] - PRESSURE_BASELINE
                      for submain in self.submains if submain["flow_rate"] > 0]
         if not pressures:
             return 0
@@ -508,18 +511,19 @@ class NSGAOptimizationTracker:
             self.best_costs.append(cost)
             self.best_variances.append(variance)
 
-            # 收集所有解的数据用于3D可视化
+            # 收集所有解的数据用于3D可视化 - 不进行采样
             for solution in valid_solutions:
                 self.all_costs.append(solution.fitness.values[0])
                 self.all_variances.append(solution.fitness.values[1])
                 self.all_generations.append(generation)
 
             # 如果启用了动态图表，更新图表
-            if self.show_dynamic_plots and generation % 5 == 0:  # 每5代更新一次图表，可调整
+            if self.show_dynamic_plots and generation % 5 == 0:  # 每5代更新一次图表
                 try:
                     self._update_plots()
                 except Exception as e:
                     print(f"图表更新时出错: {e}")
+
     def _update_plots(self):
         """更新动态图表"""
         if not self.generations:
@@ -561,8 +565,8 @@ class NSGAOptimizationTracker:
             self.fig_2d.canvas.flush_events()
             self.fig_3d.canvas.flush_events()
 
-            # 短暂暂停以确保图形更新
-            plt.pause(0.001)
+            # 短暂暂停以确保图形更新，但减少暂停时间
+            plt.pause(0.0001)  # 减少暂停时间
 
         except Exception as e:
             print(f"图表更新过程中出错: {e}")
@@ -617,10 +621,6 @@ class NSGAOptimizationTracker:
             # 刷新图表
             self.fig_2d.canvas.draw()
             self.fig_3d.canvas.draw()
-
-            # 切换到阻塞模式显示图表
-            plt.ioff()  # 关闭交互模式
-            plt.show(block=True)  # 阻塞直到所有窗口关闭
 
         except Exception as e:
             print(f"最终图表更新时出错: {e}")
@@ -707,7 +707,7 @@ class NSGAOptimizationTracker:
         plt.show(block=False)
 
 
-def multi_objective_optimization(irrigation_system, lgz1, lgz2):
+def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True, auto_save=False):
     """多目标优化函数"""
     if hasattr(creator, "FitnessMulti"):
         del creator.FitnessMulti
@@ -715,7 +715,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
         del creator.Individual
 
     # 创建跟踪器
-    tracker = NSGAOptimizationTracker(show_dynamic_plots=True, auto_save=False)  # 启用动态图表、关闭自动保存
+    tracker = NSGAOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save)  # 启用动态图表、关闭自动保存
 
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
@@ -741,7 +741,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
             for node in active_nodes:
                 if node <= len(irrigation_system.submains):
                     submain = irrigation_system.submains[node - 1]
-                    if submain["outlet_pressure"] < DEFAULT_DRIP_LINE_INLET_PRESSURE:
+                    if submain["inlet_pressure"] < PRESSURE_BASELINE:
                         pressure_satisfied = False
 
                         # 找到从起点到该节点的路径上最小管径的管段
@@ -880,7 +880,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=1000)
+    population = toolbox.population(n=100)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -923,7 +923,9 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     # 绘制图表
     tracker.finalize_plots()
 
+    # 确保优化结果返回，不阻塞在图表上
     return tools.sortNondominated(population, len(population), first_front_only=True)[0], logbook
+
 
 def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
                            output_file="optimization_results_NSGAⅡ_DAN.txt"):
@@ -1054,8 +1056,6 @@ def visualize_pareto_front(pareto_front):
         plt.ticklabel_format(style='sci', scilimits=(-2, 3), axis='both')
         plt.legend(loc='upper right')
         plt.tight_layout()
-        plt.show()
-        plt.close()
 
     except Exception as e:
         logging.error(f"可视化过程中发生错误: {str(e)}")
@@ -1072,8 +1072,20 @@ def select_best_solution_by_marginal_improvement(solutions):
     返回:
     选中的最佳解决方案
     """
+    # 首先筛选出水头均方差小于9的解
+    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 9]
+
+    # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
+    if not valid_solutions:
+        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 9]
+        if solutions_under_limit:
+            return min(solutions_under_limit, key=lambda x: x.fitness.values[1])
+        else:
+            # 如果所有解的均方差都≥9，返回均方差最小的解
+            return min(solutions, key=lambda x: x.fitness.values[1])
+
     # 按成本升序排序解集
-    sorted_solutions = sorted(solutions, key=lambda ind: ind.fitness.values[0])
+    sorted_solutions = sorted(valid_solutions, key=lambda ind: ind.fitness.values[0])
 
     # 如果只有一个解，直接返回
     if len(sorted_solutions) <= 1:
@@ -1095,9 +1107,8 @@ def select_best_solution_by_marginal_improvement(solutions):
         if cost_diff >= 0:
             continue
 
-        # 计算边际改进率：方差减少量/成本增加量的绝对值
+        # 计算边际改进率
         if cost_diff < 0:
-            # 我们希望方差减少（负值）除以成本增加（负值）得到正值
             marginal_improvement = variance_diff / abs(cost_diff)
             marginal_improvements.append((i, marginal_improvement))
 
@@ -1105,12 +1116,11 @@ def select_best_solution_by_marginal_improvement(solutions):
     if not marginal_improvements:
         return sorted_solutions[0]
 
-    # 找出边际改进率最大的解（因为方差变化可能为负，我们寻找最小值）
+    # 找出边际改进率最大的解
     best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
 
     # 返回该解
     return sorted_solutions[best_idx]
-
 
 
 def main():
@@ -1138,13 +1148,35 @@ def main():
             if valid_solutions:
                 best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
                 print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
-                visualize_pareto_front(pareto_front)
-                logging.info("结果已保存并可视化完成")
 
+                # 可视化Pareto前沿
+                visualize_pareto_front(pareto_front)
+
+                logging.info("结果已保存并可视化完成")
             else:
                 logging.error("未找到有效的解决方案")
         else:
             logging.error("多目标优化未能产生有效的Pareto前沿")
+
+        # 保存所有打开的图表
+        figures = [plt.figure(i) for i in plt.get_fignums()]
+        for i, fig in enumerate(figures):
+            try:
+                fig.savefig(f'optimization_result_fig{i}.png', dpi=300, bbox_inches='tight')
+                logging.info(f"图表{i}已保存为 optimization_result_fig{i}.png")
+            except Exception as e:
+                logging.warning(f"保存图表{i}时出错: {e}")
+
+        # 显示程序已完成的消息
+        print("=========================================================")
+        print("程序计算已完成，所有图表窗口将保持打开状态")
+        print("关闭图表窗口不会影响结果，可随时查看保存的PNG图像文件")
+        print("=========================================================")
+
+        # 关键修改：使用源程序中的方式保持窗口打开
+        # 关闭交互模式，然后显示窗口
+        plt.ioff()  # 关闭交互模式
+        plt.show()  # 阻塞直到所有窗口关闭
 
     except Exception as e:
         logging.error(f"程序执行出错: {str(e)}")

@@ -18,7 +18,7 @@ DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
 DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
-PRESSURE_BASELINE = 23.8
+PRESSURE_BASELINE = 20  # 基准压力值
 
 # 日志和图表配置
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -314,7 +314,7 @@ class IrrigationSystem:
 
     def _get_pressure_variance(self):
         """计算富裕水头方差"""
-        pressures = [submain["outlet_pressure"] - PRESSURE_BASELINE
+        pressures = [submain["inlet_pressure"] - PRESSURE_BASELINE
                      for submain in self.submains if submain["flow_rate"] > 0]
         if not pressures:
             return 0
@@ -548,7 +548,7 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_itera
             for node in active_nodes:
                 if node <= len(irrigation_system.submains):
                     submain = irrigation_system.submains[node - 1]
-                    if submain["outlet_pressure"] < DEFAULT_DRIP_LINE_INLET_PRESSURE:
+                    if submain["inlet_pressure"] < PRESSURE_BASELINE:
                         pressure_satisfied = False
 
                         # 找到从起点到该节点的路径上最小管径的管段
