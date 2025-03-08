@@ -1267,7 +1267,7 @@ def select_best_solution_by_marginal_improvement(solutions):
 
     # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.best_fitness[1] < 9]
+        solutions_under_limit = [sol for sol in solutions if sol.best_fitness[1] < 4]
         if solutions_under_limit:
             return min(solutions_under_limit, key=lambda x: x.best_fitness[1])
         else:

@@ -1263,7 +1263,7 @@ def select_best_solution_by_marginal_improvement(solutions):
     选中的最佳解决方案
     """
     # 首先筛选出水头均方差小于9的解
-    valid_solutions = [sol for sol in solutions if sol.best_fitness[1] < 9]
+    valid_solutions = [sol for sol in solutions if sol.best_fitness[1] < 4]
 
     # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
     if not valid_solutions:
