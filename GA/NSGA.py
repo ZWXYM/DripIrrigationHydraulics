@@ -880,7 +880,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=100)
+    population = toolbox.population(n=1000)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -902,7 +902,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     tracker.update(0, population)
 
     # 演化过程
-    for gen in range(1, 50):
+    for gen in range(1, 60):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)

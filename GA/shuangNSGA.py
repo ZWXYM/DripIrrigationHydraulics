@@ -4,6 +4,7 @@ import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from deap import base, creator, tools, algorithms
 
 # 系统常量定义
@@ -392,12 +393,329 @@ class IrrigationSystem:
         return drip_lines
 
 
+class NSGAOptimizationTracker:
+    def __init__(self, show_dynamic_plots=False, auto_save=False):
+        self.generations = []
+        self.best_costs = []
+        self.best_variances = []
+        self.all_costs = []
+        self.all_variances = []
+        self.all_generations = []
+
+        # 动态图表显示设置
+        self.show_dynamic_plots = show_dynamic_plots
+        self.auto_save = auto_save  # 新增控制自动保存的选项
+        self.fig_2d = None
+        self.ax1 = None
+        self.ax2 = None
+        self.fig_3d = None
+        self.ax_3d = None
+        self.scatter = None
+        self.line1 = None
+        self.line2 = None
+
+        # 如果启用动态图表，初始化图表
+        if self.show_dynamic_plots:
+            self._init_plots()
+
+    def _init_plots(self):
+        """初始化动态图表"""
+        # 确保交互模式开启
+        plt.ion()
+
+        # 初始化2D图表
+        self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+        self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
+        self.ax1.set_title('NSGA-II算法优化迭代曲线', fontsize=14)
+        self.ax1.grid(True, linestyle='--', alpha=0.7)
+
+        self.ax2.set_xlabel('迭代代数', fontsize=12)
+        self.ax2.set_ylabel('水头均方差', fontsize=12)
+        self.ax2.grid(True, linestyle='--', alpha=0.7)
+
+        # 创建空的线条对象
+        self.line1, = self.ax1.plot([], [], 'b-o', linewidth=2)
+        self.line2, = self.ax2.plot([], [], 'r-o', linewidth=2)
+
+        # 初始化3D图表
+        self.fig_3d = plt.figure(figsize=(12, 10))
+        self.ax_3d = self.fig_3d.add_subplot(111, projection='3d')
+        self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
+        self.ax_3d.set_ylabel('水头均方差', fontsize=12)
+        self.ax_3d.set_zlabel('迭代代数', fontsize=12)
+        self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+
+        # 显示图表
+        self.fig_2d.canvas.draw()
+        self.fig_2d.canvas.flush_events()
+        self.fig_3d.canvas.draw()
+        self.fig_3d.canvas.flush_events()
+
+    def select_best_solution_by_marginal_improvement(self, solutions):
+        """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
+        # 按成本升序排序解集
+        sorted_solutions = sorted(solutions, key=lambda ind: ind.fitness.values[0])
+
+        # 如果只有一个解，直接返回
+        if len(sorted_solutions) <= 1:
+            return sorted_solutions[0]
+
+        # 计算每对相邻解之间的边际改进率
+        marginal_improvements = []
+        for i in range(1, len(sorted_solutions)):
+            prev_cost = sorted_solutions[i - 1].fitness.values[0]
+            prev_variance = sorted_solutions[i - 1].fitness.values[1]
+            curr_cost = sorted_solutions[i].fitness.values[0]
+            curr_variance = sorted_solutions[i].fitness.values[1]
+
+            # 计算成本变化和方差变化
+            cost_diff = curr_cost - prev_cost
+            variance_diff = curr_variance - prev_variance
+
+            # 如果成本增加，跳过
+            if cost_diff >= 0:
+                continue
+
+            # 计算边际改进率
+            if cost_diff < 0:
+                marginal_improvement = variance_diff / abs(cost_diff)
+                marginal_improvements.append((i, marginal_improvement))
+
+        # 如果没有找到有效的边际改进，返回成本最低的解
+        if not marginal_improvements:
+            return sorted_solutions[0]
+
+        # 找出边际改进率最大的解
+        best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
+
+        return sorted_solutions[best_idx]
+
+    def update(self, generation, population):
+        """更新跟踪器的数据"""
+        self.generations.append(generation)
+
+        # 获取有效解
+        valid_solutions = [ind for ind in population if np.all(np.isfinite(ind.fitness.values))]
+
+        if valid_solutions:
+            # 选择代表性解
+            best_solution = self.select_best_solution_by_marginal_improvement(valid_solutions)
+
+            # 记录代表性解的成本和方差
+            cost = best_solution.fitness.values[0]
+            variance = best_solution.fitness.values[1]
+
+            self.best_costs.append(cost)
+            self.best_variances.append(variance)
+
+            # 收集所有解的数据用于3D可视化
+            for solution in valid_solutions:
+                self.all_costs.append(solution.fitness.values[0])
+                self.all_variances.append(solution.fitness.values[1])
+                self.all_generations.append(generation)
+
+            # 如果启用了动态图表，更新图表
+            if self.show_dynamic_plots and generation % 5 == 0:  # 每5代更新一次图表，可调整
+                try:
+                    self._update_plots()
+                except Exception as e:
+                    print(f"图表更新时出错: {e}")
+    def _update_plots(self):
+        """更新动态图表"""
+        if not self.generations:
+            return
+
+        try:
+            # 更新2D图表中的数据
+            self.line1.set_data(self.generations, self.best_costs)
+            self.line2.set_data(self.generations, self.best_variances)
+
+            # 调整坐标轴范围
+            self.ax1.relim()
+            self.ax1.autoscale_view()
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+
+            # 更新3D图表
+            self.ax_3d.clear()
+            self.scatter = self.ax_3d.scatter(
+                self.all_costs,
+                self.all_variances,
+                self.all_generations,
+                c=self.all_generations,
+                cmap='viridis',
+                s=50,
+                alpha=0.6
+            )
+
+            self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
+            self.ax_3d.set_ylabel('水头均方差', fontsize=12)
+            self.ax_3d.set_zlabel('迭代代数', fontsize=12)
+            self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+
+            # 刷新图表 - 使用更可靠的方法
+            self.fig_2d.canvas.draw_idle()
+            self.fig_3d.canvas.draw_idle()
+
+            # 处理事件队列
+            self.fig_2d.canvas.flush_events()
+            self.fig_3d.canvas.flush_events()
+
+            # 短暂暂停以确保图形更新
+            plt.pause(0.001)
+
+        except Exception as e:
+            print(f"图表更新过程中出错: {e}")
+
+    def finalize_plots(self):
+        """优化结束后最终更新图表"""
+        if not self.show_dynamic_plots:
+            # 如果没有启用动态图表，创建新图表
+            self.plot_2d_curves()
+            self.plot_3d_progress()
+            return
+
+        # 更新已有的动态图表
+        try:
+            # 更新2D图表
+            self.line1.set_data(self.generations, self.best_costs)
+            self.line2.set_data(self.generations, self.best_variances)
+
+            # 调整坐标轴范围
+            self.ax1.relim()
+            self.ax1.autoscale_view()
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+            self.fig_2d.tight_layout()
+
+            # 更新3D图表
+            self.ax_3d.clear()
+            self.scatter = self.ax_3d.scatter(
+                self.all_costs,
+                self.all_variances,
+                self.all_generations,
+                c=self.all_generations,
+                cmap='viridis',
+                s=50,
+                alpha=0.6
+            )
+
+            # 添加颜色条
+            cbar = self.fig_3d.colorbar(self.scatter, ax=self.ax_3d, pad=0.1)
+            cbar.set_label('迭代代数', fontsize=12)
+
+            self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
+            self.ax_3d.set_ylabel('水头均方差', fontsize=12)
+            self.ax_3d.set_zlabel('迭代代数', fontsize=12)
+            self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+
+            # 如果需要，保存图表
+            if self.auto_save:
+                self.fig_2d.savefig('NSGA_2d_curves.png', dpi=300, bbox_inches='tight')
+                self.fig_3d.savefig('NSGA_3d_progress.png', dpi=300, bbox_inches='tight')
+
+            # 刷新图表
+            self.fig_2d.canvas.draw()
+            self.fig_3d.canvas.draw()
+
+            # 切换到阻塞模式显示图表
+            plt.ioff()  # 关闭交互模式
+            plt.show(block=True)  # 阻塞直到所有窗口关闭
+
+        except Exception as e:
+            print(f"最终图表更新时出错: {e}")
+
+    def plot_2d_curves(self):
+        """绘制最终的2D迭代曲线"""
+        if not self.generations:
+            print("没有数据可供绘图")
+            return
+
+        # 确保在非交互模式下创建新图表
+        plt.ioff()
+
+        # 创建新图表
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+        # 成本曲线
+        ax1.plot(self.generations, self.best_costs, 'b-o', linewidth=2)
+        ax1.set_ylabel('系统成本 (元)', fontsize=12)
+        ax1.set_title('NSGA-II算法优化迭代曲线', fontsize=14)
+        ax1.grid(True, linestyle='--', alpha=0.7)
+
+        # 方差曲线
+        ax2.plot(self.generations, self.best_variances, 'r-o', linewidth=2)
+        ax2.set_xlabel('迭代代数', fontsize=12)
+        ax2.set_ylabel('水头均方差', fontsize=12)
+        ax2.grid(True, linestyle='--', alpha=0.7)
+
+        plt.tight_layout()
+
+        # 如果需要，保存图表
+        if self.auto_save:
+            plt.savefig('NSGA_2d_curves.png', dpi=300, bbox_inches='tight')
+
+        # 显示图表
+        plt.ion()  # 重新开启交互模式以便能打开多个图表
+        plt.show(block=False)
+
+    def plot_3d_progress(self):
+        """绘制最终的3D进度图"""
+        if not self.all_generations:
+            print("没有数据可供绘图")
+            return
+
+        # 确保在非交互模式下创建新图表
+        plt.ioff()
+
+        # 创建新图表
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # 绘制3D散点图
+        scatter = ax.scatter(
+            self.all_costs,
+            self.all_variances,
+            self.all_generations,
+            c=self.all_generations,  # 按代数上色
+            cmap='viridis',
+            s=50,
+            alpha=0.6
+        )
+
+        # 添加颜色条
+        cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
+        cbar.set_label('迭代代数', fontsize=12)
+
+        # 设置轴标签
+        ax.set_xlabel('系统成本 (元)', fontsize=12)
+        ax.set_ylabel('水头均方差', fontsize=12)
+        ax.set_zlabel('迭代代数', fontsize=12)
+
+        # 设置图表标题
+        ax.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+
+        # 调整视角
+        ax.view_init(elev=30, azim=45)
+
+        # 如果需要，保存图表
+        if self.auto_save:
+            plt.savefig('NSGA_3d_progress.png', dpi=300, bbox_inches='tight')
+
+        # 显示图表
+        plt.ion()  # 重新开启交互模式以便能打开多个图表
+        plt.show(block=False)
+
+
 def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     """多目标优化函数"""
     if hasattr(creator, "FitnessMulti"):
         del creator.FitnessMulti
     if hasattr(creator, "Individual"):
         del creator.Individual
+
+    # 创建跟踪器
+    tracker = NSGAOptimizationTracker(show_dynamic_plots=True, auto_save=False)  # 启用动态图表、关闭自动保存
 
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
@@ -562,7 +880,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=100)
+    population = toolbox.population(n=1000)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -580,8 +898,11 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     record = stats.compile(population)
     logbook.record(gen=0, **record)
 
+    # 更新跟踪器
+    tracker.update(0, population)
+
     # 演化过程
-    for gen in range(1, 100):
+    for gen in range(1, 50):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
@@ -592,15 +913,20 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
         record = stats.compile(population)
         logbook.record(gen=gen, **record)
 
+        # 更新跟踪器
+        tracker.update(gen, population)
+
         # 输出进度
         if gen % 10 == 0:
             logging.info(f"Generation {gen}: {record}")
 
+    # 绘制图表
+    tracker.finalize_plots()
+
     return tools.sortNondominated(population, len(population), first_front_only=True)[0], logbook
 
-
 def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
-                           output_file="optimization_results_NSGAⅡ_SHUANG.txt"):
+                           output_file="optimization_results_NSGAⅡ_DAN.txt"):
     """优化后的结果输出函数，包含压力分析"""
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -786,6 +1112,7 @@ def select_best_solution_by_marginal_improvement(solutions):
     return sorted_solutions[best_idx]
 
 
+
 def main():
     """主函数"""
     try:
@@ -813,6 +1140,7 @@ def main():
                 print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
                 visualize_pareto_front(pareto_front)
                 logging.info("结果已保存并可视化完成")
+
             else:
                 logging.error("未找到有效的解决方案")
         else:
