@@ -427,7 +427,7 @@ class NSGAOptimizationTracker:
         # 初始化2D图表
         self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
         self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        self.ax1.set_title('NSGA-II算法优化迭代曲线', fontsize=14)
+        self.ax1.set_title('丰字NSGA-II算法优化迭代曲线', fontsize=14)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
         self.ax2.set_xlabel('迭代代数', fontsize=12)
@@ -444,7 +444,7 @@ class NSGAOptimizationTracker:
         self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
         self.ax_3d.set_ylabel('水头均方差', fontsize=12)
         self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-        self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+        self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontsize=14)
 
         # 显示图表
         self.fig_2d.canvas.draw()
@@ -553,7 +553,7 @@ class NSGAOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-            self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontsize=14)
 
             # 刷新图表 - 使用更可靠的方法
             self.fig_2d.canvas.draw_idle()
@@ -609,12 +609,12 @@ class NSGAOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-            self.ax_3d.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontsize=14)
 
             # 如果需要，保存图表
             if self.auto_save:
-                self.fig_2d.savefig('NSGA_2d_curves.png', dpi=300, bbox_inches='tight')
-                self.fig_3d.savefig('NSGA_3d_progress.png', dpi=300, bbox_inches='tight')
+                self.fig_2d.savefig('NSGA_SHUANG_2d_curves.png', dpi=300, bbox_inches='tight')
+                self.fig_3d.savefig('NSGA_SHUANG_3d_progress.png', dpi=300, bbox_inches='tight')
 
             # 刷新图表
             self.fig_2d.canvas.draw()
@@ -638,7 +638,7 @@ class NSGAOptimizationTracker:
         # 成本曲线
         ax1.plot(self.generations, self.best_costs, 'b-o', linewidth=2)
         ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        ax1.set_title('NSGA-II算法优化迭代曲线', fontsize=14)
+        ax1.set_title('丰字NSGA-II算法优化迭代曲线', fontsize=14)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
         # 方差曲线
@@ -651,7 +651,7 @@ class NSGAOptimizationTracker:
 
         # 如果需要，保存图表
         if self.auto_save:
-            plt.savefig('NSGA_2d_curves.png', dpi=300, bbox_inches='tight')
+            plt.savefig('NSGA_SHUANG_2d_curves.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -691,14 +691,14 @@ class NSGAOptimizationTracker:
         ax.set_zlabel('迭代代数', fontsize=12)
 
         # 设置图表标题
-        ax.set_title('NSGA-II算法优化3D进度图', fontsize=14)
+        ax.set_title('丰字NSGA-II算法优化3D进度图', fontsize=14)
 
         # 调整视角
         ax.view_init(elev=30, azim=45)
 
         # 如果需要，保存图表
         if self.auto_save:
-            plt.savefig('NSGA_3d_progress.png', dpi=300, bbox_inches='tight')
+            plt.savefig('NSGA_SHUANG_3d_progress.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -926,7 +926,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
 
 
 def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
-                           output_file="optimization_results_NSGAⅡ_DAN.txt"):
+                           output_file="optimization_results_NSGAⅡ_SHUANG.txt"):
     """优化后的结果输出函数，包含压力分析"""
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -1160,8 +1160,8 @@ def main():
         figures = [plt.figure(i) for i in plt.get_fignums()]
         for i, fig in enumerate(figures):
             try:
-                fig.savefig(f'optimization_result_fig{i}.png', dpi=300, bbox_inches='tight')
-                logging.info(f"图表{i}已保存为 optimization_result_fig{i}.png")
+                fig.savefig(f'NSGA_SHAUNG_result_fig{i}.png', dpi=300, bbox_inches='tight')
+                logging.info(f"图表{i}已保存为 NSGA_SHUANG_result_fig{i}.png")
             except Exception as e:
                 logging.warning(f"保存图表{i}时出错: {e}")
 

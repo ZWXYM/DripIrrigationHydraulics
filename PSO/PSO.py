@@ -427,7 +427,7 @@ class PSOOptimizationTracker:
         # 初始化2D图表
         self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
         self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        self.ax1.set_title('PSO算法优化迭代曲线', fontsize=14)
+        self.ax1.set_title('梳齿状PSO算法优化迭代曲线', fontsize=14)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
         self.ax2.set_xlabel('迭代次数', fontsize=12)
@@ -444,7 +444,7 @@ class PSOOptimizationTracker:
         self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
         self.ax_3d.set_ylabel('水头均方差', fontsize=12)
         self.ax_3d.set_zlabel('迭代次数', fontsize=12)
-        self.ax_3d.set_title('PSO算法优化3D进度图', fontsize=14)
+        self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
         # 显示图表
         self.fig_2d.canvas.draw()
@@ -553,7 +553,7 @@ class PSOOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
-            self.ax_3d.set_title('PSO算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
             # 刷新图表 - 使用更可靠的方法
             self.fig_2d.canvas.draw_idle()
@@ -609,12 +609,12 @@ class PSOOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
-            self.ax_3d.set_title('PSO算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
             # 如果需要，保存图表
             if self.auto_save:
-                self.fig_2d.savefig('PSO_2d_curves.png', dpi=300, bbox_inches='tight')
-                self.fig_3d.savefig('PSO_3d_progress.png', dpi=300, bbox_inches='tight')
+                self.fig_2d.savefig('PSO_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
+                self.fig_3d.savefig('PSO_SHUANG_3d_progress.png', dpi=300, bbox_inches='tight')
 
             # 刷新图表
             self.fig_2d.canvas.draw()
@@ -638,7 +638,7 @@ class PSOOptimizationTracker:
         # 成本曲线
         ax1.plot(self.iterations, self.best_costs, 'b-o', linewidth=2)
         ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        ax1.set_title('PSO算法优化迭代曲线', fontsize=14)
+        ax1.set_title('梳齿状PSO算法优化迭代曲线', fontsize=14)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
         # 方差曲线
@@ -651,7 +651,7 @@ class PSOOptimizationTracker:
 
         # 如果需要，保存图表
         if self.auto_save:
-            plt.savefig('PSO_2d_curves.png', dpi=300, bbox_inches='tight')
+            plt.savefig('PSO_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -691,14 +691,14 @@ class PSOOptimizationTracker:
         ax.set_zlabel('迭代次数', fontsize=12)
 
         # 设置图表标题
-        ax.set_title('PSO算法优化3D进度图', fontsize=14)
+        ax.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
         # 调整视角
         ax.view_init(elev=30, azim=45)
 
         # 如果需要，保存图表
         if self.auto_save:
-            plt.savefig('PSO_3d_progress.png', dpi=300, bbox_inches='tight')
+            plt.savefig('PSO_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -1354,7 +1354,7 @@ def main():
         figures = [plt.figure(i) for i in plt.get_fignums()]
         for i, fig in enumerate(figures):
             try:
-                fig.savefig(f'PSO_optimization_result_fig{i}.png', dpi=300, bbox_inches='tight')
+                fig.savefig(f'PSO_DAN_result_fig{i}.png', dpi=300, bbox_inches='tight')
                 logging.info(f"图表{i}已保存为 PSO_DAN_result_fig{i}.png")
             except Exception as e:
                 logging.warning(f"保存图表{i}时出错: {e}")

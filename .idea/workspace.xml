@@ -4,13 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GA/NSGA.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/NSGA.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GA/shuangNSGA.py" beforeDir="false" afterPath="$PROJECT_DIR$/GA/shuangNSGA.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PSO/PSO.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/PSO.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PSO/shuangPSO.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSO/shuangPSO.py" afterDir="false" />
-    </list>
+    <list default="true" id="ba37b7e9-8bd4-4949-85ce-a6974f96226a" name="更改" comment="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -298,22 +292,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1712844177018</updated>
-    </task>
-    <task id="LOCAL-00025" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <option name="closed" value="true" />
-      <created>1726491001737</created>
-      <option name="number" value="00025" />
-      <option name="presentableId" value="LOCAL-00025" />
-      <option name="project" value="LOCAL" />
-      <updated>1726491001737</updated>
-    </task>
-    <task id="LOCAL-00026" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
-      <option name="closed" value="true" />
-      <created>1726666668883</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1726666668883</updated>
     </task>
     <task id="LOCAL-00027" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
       <option name="closed" value="true" />
@@ -691,7 +669,23 @@
       <option name="project" value="LOCAL" />
       <updated>1741465658442</updated>
     </task>
-    <option name="localTasksCounter" value="74" />
+    <task id="LOCAL-00074" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1741467264191</created>
+      <option name="number" value="00074" />
+      <option name="presentableId" value="LOCAL-00074" />
+      <option name="project" value="LOCAL" />
+      <updated>1741467264191</updated>
+    </task>
+    <task id="LOCAL-00075" summary="Revert &quot;Changes&quot;&#10;&#10;This reverts commit b710fdfa816b32c7975646fd88d9f607f7b4102a.">
+      <option name="closed" value="true" />
+      <created>1741467365328</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1741467365328</updated>
+    </task>
+    <option name="localTasksCounter" value="76" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
