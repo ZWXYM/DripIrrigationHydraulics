@@ -648,8 +648,6 @@ class PSOOptimizationTracker:
         plt.tight_layout()
 
         # 如果需要，保存图表
-        if self.auto_save:
-            plt.savefig('PSO_SHUANG_2d_curves.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -693,11 +691,6 @@ class PSOOptimizationTracker:
 
         # 调整视角
         ax.view_init(elev=30, azim=45)
-
-        # 如果需要，保存图表
-        if self.auto_save:
-            plt.savefig('PSO_SHUANG_3d_progress.png', dpi=300, bbox_inches='tight')
-
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
         plt.show(block=False)
