@@ -167,7 +167,7 @@ class IrrigationSystem:
 
         return {
             'head_loss': self._get_total_head_loss(),
-            'pressure_variance': self._get_pressure_variance(),
+            'pressure_variance': self.calculate_pressure_variance(active_nodes),  # 修改这里
             'cost': self.get_system_cost(),
             'pressure_satisfaction': self._check_pressure_requirements()
         }
@@ -315,14 +315,8 @@ class IrrigationSystem:
 
     def _get_pressure_variance(self):
         """计算富裕水头方差"""
-        pressures = [submain["inlet_pressure"] - PRESSURE_BASELINE
-                     for submain in self.submains if submain["flow_rate"] > 0]
-        if not pressures:
-            return 0
-        mean_pressure = sum(pressures) / len(pressures)
-        FC = sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
-        JFC = FC ** 0.5
-        return JFC
+        active_nodes = [i + 1 for i, submain in enumerate(self.submains) if submain["flow_rate"] > 0]
+        return self.calculate_pressure_variance(active_nodes)
 
     def _check_pressure_requirements(self):
         """检查压力要求满足情况"""
@@ -393,6 +387,19 @@ class IrrigationSystem:
                         "flow_rate": 0.0
                     })
         return drip_lines
+
+    def calculate_pressure_variance(self, active_nodes):
+        """统一计算水头均方差的标准方法"""
+        pressure_margins = [self.submains[node - 1]["inlet_pressure"] - PRESSURE_BASELINE
+                            for node in active_nodes
+                            if node <= len(self.submains) and self.submains[node - 1]["flow_rate"] > 0]
+
+        if not pressure_margins:
+            return 0
+
+        avg_margin = sum(pressure_margins) / len(pressure_margins)
+        variance = sum((p - avg_margin) ** 2 for p in pressure_margins) / len(pressure_margins)
+        return variance ** 0.5
 
 class NSGAOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -499,17 +506,19 @@ class NSGAOptimizationTracker:
         valid_solutions = [ind for ind in population if np.all(np.isfinite(ind.fitness.values))]
 
         if valid_solutions:
-            # 选择代表性解
-            best_solution = self.select_best_solution_by_marginal_improvement(valid_solutions)
+            # 获取当前代的帕累托前沿解
+            pareto_fronts = tools.sortNondominated(valid_solutions, len(valid_solutions))
+            pareto_front = pareto_fronts[0]  # 第一个前沿就是帕累托前沿
 
-            # 记录代表性解的成本和方差
-            cost = best_solution.fitness.values[0]
-            variance = best_solution.fitness.values[1]
+            # 计算帕累托前沿解的平均成本和平均水头均方差
+            avg_cost = np.mean([ind.fitness.values[0] for ind in pareto_front])
+            avg_variance = np.mean([ind.fitness.values[1] for ind in pareto_front])
 
-            self.best_costs.append(cost)
-            self.best_variances.append(variance)
+            # 记录平均值
+            self.best_costs.append(avg_cost)
+            self.best_variances.append(avg_variance)
 
-            # 收集所有解的数据用于3D可视化 - 不进行采样
+            # 收集所有解的数据用于3D可视化
             for solution in valid_solutions:
                 self.all_costs.append(solution.fitness.values[0])
                 self.all_variances.append(solution.fitness.values[1])
@@ -537,6 +546,8 @@ class NSGAOptimizationTracker:
             self.ax1.autoscale_view()
             self.ax2.relim()
             self.ax2.autoscale_view()
+            # 更新标题，反映这是帕累托解的平均值
+            self.ax1.set_title('梳齿状NSGA-II算法优化迭代曲线 (平均值)', fontsize=14)
 
             # 更新3D图表
             self.ax_3d.clear()
@@ -900,7 +911,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     tracker.update(0, population)
 
     # 演化过程
-    for gen in range(1, 50):
+    for gen in range(1, 100):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
@@ -945,8 +956,11 @@ def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
                        f"{submain['diameter_second_half']:4d}")
         write_line("-" * 45)
 
-        # 存储所有压力差值用于全局统计
+        # 存储所有压力差值用于组内统计
         all_pressure_margins = []
+
+        # 存储每个组的压力方差，用于计算全局平均方差
+        all_group_variances = []
 
         # 对每个轮灌组输出信息
         for group_idx, nodes in enumerate(irrigation_system.irrigation_groups):
@@ -957,6 +971,10 @@ def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
             irrigation_system._update_flow_rates(nodes)
             irrigation_system._calculate_hydraulics()
             irrigation_system._calculate_pressures()
+
+            # 收集该组的压力方差
+            group_variance = irrigation_system.calculate_pressure_variance(nodes)
+            all_group_variances.append(group_variance)
 
             # 压力分析数据收集
             group_pressures = []
@@ -999,17 +1017,20 @@ def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
             write_line("\n注: * 表示该管段对应节点在当前轮灌组中启用")
             write_line("-" * 100)
 
-        # 计算并输出全局统计指标
+        # 计算全局统计指标
+        # 使用与优化算法相同的方法计算全局压力均方差：所有轮灌组方差的平均值
+        global_std_dev = sum(all_group_variances) / len(all_group_variances) if all_group_variances else 0
+
+        # 全局平均压力富裕程度仍然可以用所有收集的压力值计算
         if all_pressure_margins:
             global_avg_margin = sum(all_pressure_margins) / len(all_pressure_margins)
-            global_variance = sum((p - global_avg_margin) ** 2 for p in all_pressure_margins) / len(
-                all_pressure_margins)
-            global_std_dev = global_variance ** 0.5
+        else:
+            global_avg_margin = 0
 
-            write_line("\n=== 全局压力统计 ===")
-            write_line(f"系统整体平均压力富裕程度: {global_avg_margin:.2f} m")
-            write_line(f"系统整体压力均方差: {global_std_dev:.2f}")
-            write_line("-" * 45)
+        write_line("\n=== 全局压力统计 ===")
+        write_line(f"系统整体平均压力富裕程度: {global_avg_margin:.2f} m")
+        write_line(f"系统整体压力均方差: {global_std_dev:.2f}")
+        write_line("-" * 45)
 
         # 输出系统经济指标
         total_cost = irrigation_system.get_system_cost()
@@ -1047,7 +1068,7 @@ def visualize_pareto_front(pareto_front):
         plt.figure(figsize=(10, 6), dpi=100)
         plt.scatter(costs, variances, c='blue', marker='o', s=50, alpha=0.6, label='Pareto解')
 
-        plt.title('多目标梳齿NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
+        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
         plt.xlabel('系统成本', fontsize=10)
         plt.ylabel('压力方差', fontsize=10)
         plt.grid(True, linestyle='--', alpha=0.7)
@@ -1061,25 +1082,17 @@ def visualize_pareto_front(pareto_front):
 
 
 def select_best_solution_by_marginal_improvement(solutions):
-    """
-    选择在相同成本递减变化情况下节点水头均方差下降最快的解
+    """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
+    # 首先筛选出水头均方差小于特定值的解
+    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 7]
 
-    参数:
-    solutions: 有效的Pareto解列表，每个元素是NSGA-II算法生成的带有fitness.values属性的对象
-
-    返回:
-    选中的最佳解决方案
-    """
-    # 首先筛选出水头均方差小于9的解
-    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 4]
-
-    # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
+    # 如果没有符合条件的解，尝试放宽条件
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 9]
+        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 7]
         if solutions_under_limit:
             return min(solutions_under_limit, key=lambda x: x.fitness.values[1])
         else:
-            # 如果所有解的均方差都≥9，返回均方差最小的解
+            # 如果所有解的均方差都较大，返回均方差最小的解
             return min(solutions, key=lambda x: x.fitness.values[1])
 
     # 按成本升序排序解集
@@ -1105,9 +1118,8 @@ def select_best_solution_by_marginal_improvement(solutions):
         if cost_diff >= 0:
             continue
 
-        # 计算边际改进率
+        # 计算边际改进率(方差减少量/成本增加量的绝对值)
         if cost_diff < 0:
-            # 方差减少量/成本增加量的绝对值
             marginal_improvement = variance_diff / abs(cost_diff)
             marginal_improvements.append((i, marginal_improvement))
 
@@ -1115,7 +1127,7 @@ def select_best_solution_by_marginal_improvement(solutions):
     if not marginal_improvements:
         return sorted_solutions[0]
 
-    # 找出边际改进率最大的解（方差变化为负值时，寻找最小值）
+    # 找出边际改进率最大的解(方差变化为负值时，寻找最小值)
     best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
 
     # 返回该解
@@ -1127,7 +1139,7 @@ def main():
     try:
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
-            node_count=23,
+            node_count=12,
         )
 
         # 设置轮灌参数
@@ -1145,11 +1157,11 @@ def main():
         if pareto_front:
             valid_solutions = [ind for ind in pareto_front if np.all(np.isfinite(ind.fitness.values))]
             if valid_solutions:
-                # 修改选择最优解的方法
+                # 选择最优解
                 best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
+                # 使用相同的最优解进行详细结果输出
                 print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
-
-                # 可视化Pareto前沿
+                # 可视化Pareto前沿，并标记出相同的最优解
                 visualize_pareto_front(pareto_front)
 
                 logging.info("结果已保存并可视化完成")

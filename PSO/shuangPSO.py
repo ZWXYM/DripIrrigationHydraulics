@@ -427,7 +427,7 @@ class PSOOptimizationTracker:
         # 初始化2D图表
         self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
         self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        self.ax1.set_title('丰字PSO算法优化迭代曲线', fontsize=14)
+        self.ax1.set_title('丰字PSO算法优化迭代曲线(平均值)', fontsize=14)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
         self.ax2.set_xlabel('迭代次数', fontsize=12)
@@ -499,15 +499,13 @@ class PSOOptimizationTracker:
         valid_solutions = [particle for particle in pareto_front if np.all(np.isfinite(particle.best_fitness))]
 
         if valid_solutions:
-            # 选择代表性解
-            best_solution = self.select_best_solution_by_marginal_improvement(valid_solutions)
+            # 计算帕累托前沿解的平均成本和平均水头均方差
+            avg_cost = np.mean([particle.best_fitness[0] for particle in valid_solutions])
+            avg_variance = np.mean([particle.best_fitness[1] for particle in valid_solutions])
 
-            # 记录代表性解的成本和方差
-            cost = best_solution.best_fitness[0]
-            variance = best_solution.best_fitness[1]
-
-            self.best_costs.append(cost)
-            self.best_variances.append(variance)
+            # 记录平均值
+            self.best_costs.append(avg_cost)
+            self.best_variances.append(avg_variance)
 
             # 收集所有解的数据用于3D可视化
             for solution in valid_solutions:
@@ -1267,7 +1265,7 @@ def select_best_solution_by_marginal_improvement(solutions):
 
     # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.best_fitness[1] < 9]
+        solutions_under_limit = [sol for sol in solutions if sol.best_fitness[1] < 4]
         if solutions_under_limit:
             return min(solutions_under_limit, key=lambda x: x.best_fitness[1])
         else:
