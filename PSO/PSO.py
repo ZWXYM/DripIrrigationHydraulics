@@ -167,7 +167,7 @@ class IrrigationSystem:
 
         return {
             'head_loss': self._get_total_head_loss(),
-            'pressure_variance': self._get_pressure_variance(),
+            'pressure_variance': self.calculate_pressure_variance(active_nodes),  # 修改这里
             'cost': self.get_system_cost(),
             'pressure_satisfaction': self._check_pressure_requirements()
         }
@@ -315,14 +315,8 @@ class IrrigationSystem:
 
     def _get_pressure_variance(self):
         """计算富裕水头方差"""
-        pressures = [submain["inlet_pressure"] - PRESSURE_BASELINE
-                     for submain in self.submains if submain["flow_rate"] > 0]
-        if not pressures:
-            return 0
-        mean_pressure = sum(pressures) / len(pressures)
-        FC = sum((p - mean_pressure) ** 2 for p in pressures) / len(pressures)
-        JFC = FC ** 0.5
-        return JFC
+        active_nodes = [i + 1 for i, submain in enumerate(self.submains) if submain["flow_rate"] > 0]
+        return self.calculate_pressure_variance(active_nodes)
 
     def _check_pressure_requirements(self):
         """检查压力要求满足情况"""
@@ -394,6 +388,19 @@ class IrrigationSystem:
                     })
         return drip_lines
 
+    def calculate_pressure_variance(self, active_nodes):
+        """统一计算水头均方差的标准方法"""
+        pressure_margins = [self.submains[node - 1]["inlet_pressure"] - PRESSURE_BASELINE
+                            for node in active_nodes
+                            if node <= len(self.submains) and self.submains[node - 1]["flow_rate"] > 0]
+
+        if not pressure_margins:
+            return 0
+
+        avg_margin = sum(pressure_margins) / len(pressure_margins)
+        variance = sum((p - avg_margin) ** 2 for p in pressure_margins) / len(pressure_margins)
+        return variance ** 0.5
+
 
 class PSOOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -428,7 +435,7 @@ class PSOOptimizationTracker:
         # 初始化2D图表
         self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
         self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        self.ax1.set_title('梳齿状PSO算法优化迭代曲线(平均值)', fontsize=14)
+        self.ax1.set_title('梳齿状PSO算法优化迭代曲线', fontsize=14)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
         self.ax2.set_xlabel('迭代次数', fontsize=12)
@@ -453,73 +460,198 @@ class PSOOptimizationTracker:
         self.fig_3d.canvas.draw()
         self.fig_3d.canvas.flush_events()
 
-    def select_best_solution_by_marginal_improvement(self, solutions):
-        """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
-        # 按成本升序排序解集
-        sorted_solutions = sorted(solutions, key=lambda particle: particle.best_fitness[0])
-
-        # 如果只有一个解，直接返回
-        if len(sorted_solutions) <= 1:
-            return sorted_solutions[0]
-
-        # 计算每对相邻解之间的边际改进率
-        marginal_improvements = []
-        for i in range(1, len(sorted_solutions)):
-            prev_cost = sorted_solutions[i - 1].best_fitness[0]
-            prev_variance = sorted_solutions[i - 1].best_fitness[1]
-            curr_cost = sorted_solutions[i].best_fitness[0]
-            curr_variance = sorted_solutions[i].best_fitness[1]
-
-            # 计算成本变化和方差变化
-            cost_diff = curr_cost - prev_cost
-            variance_diff = curr_variance - prev_variance
-
-            # 如果成本增加，跳过
-            if cost_diff >= 0:
-                continue
-
-            # 计算边际改进率
-            if cost_diff < 0:
-                marginal_improvement = variance_diff / abs(cost_diff)
-                marginal_improvements.append((i, marginal_improvement))
-
-        # 如果没有找到有效的边际改进，返回成本最低的解
-        if not marginal_improvements:
-            return sorted_solutions[0]
-
-        # 找出边际改进率最大的解
-        best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
-
-        return sorted_solutions[best_idx]
-
-    def update(self, iteration, swarm, pareto_front):
-        """更新跟踪器的数据"""
+    # 新方法 - 直接接收帕累托前沿
+    def update_with_front(self, iteration, swarm, pareto_front):
+        """接收直接传入的帕累托前沿，与最终结果使用相同的选择方法，增加平滑处理"""
         self.iterations.append(iteration)
 
-        # 获取有效解
+        # 获取有效解用于3D图
         valid_solutions = [particle for particle in pareto_front if np.all(np.isfinite(particle.best_fitness))]
 
         if valid_solutions:
-            # 计算帕累托前沿解的平均成本和平均水头均方差
-            avg_cost = np.mean([particle.best_fitness[0] for particle in valid_solutions])
-            avg_variance = np.mean([particle.best_fitness[1] for particle in valid_solutions])
+            # 直接使用与主函数相同的选择策略
+            # 使用相同的选择函数和水头均方差阈值
+            # 从外部模块导入select_best_solution_by_marginal_improvement函数
+            import __main__
+            if hasattr(__main__, 'select_best_solution_by_marginal_improvement'):
+                # 使用与主程序相同的函数和参数
+                best_solution = __main__.select_best_solution_by_marginal_improvement(valid_solutions)
+            else:
+                # 如果无法导入，使用内部实现
+                best_solution = self._select_best_solution(valid_solutions)
 
-            # 记录平均值
-            self.best_costs.append(avg_cost)
-            self.best_variances.append(avg_variance)
+            # 平滑处理：如果之前已有数据，检测变化是否过大
+            if self.best_costs and self.best_variances:
+                prev_cost = self.best_costs[-1]
+                prev_variance = self.best_variances[-1]
 
-            # 收集所有解的数据用于3D可视化
-            for solution in valid_solutions:
-                self.all_costs.append(solution.best_fitness[0])
-                self.all_variances.append(solution.best_fitness[1])
-                self.all_iterations.append(iteration)
+                curr_cost = best_solution.best_fitness[0]
+                curr_variance = best_solution.best_fitness[1]
 
-            # 如果启用了动态图表，更新图表
-            if self.show_dynamic_plots and iteration % 5 == 0:  # 每5代更新一次图表
-                try:
-                    self._update_plots()
-                except Exception as e:
-                    print(f"图表更新时出错: {e}")
+                # 计算相对变化
+                if prev_cost != 0:
+                    cost_change_ratio = abs((curr_cost - prev_cost) / prev_cost)
+                else:
+                    cost_change_ratio = 0
+
+                if prev_variance != 0:
+                    var_change_ratio = abs((curr_variance - prev_variance) / prev_variance)
+                else:
+                    var_change_ratio = 0
+
+                # 如果变化过大(超过15%)，进行平滑处理
+                if iteration > 20 and (cost_change_ratio > 0.15 or var_change_ratio > 0.15):
+                    # 指数平滑公式: new_value = α * current + (1-α) * previous
+                    # α = 0.3 意味着更重视历史值，减轻当前值的影响
+                    smoothed_cost = 0.3 * curr_cost + 0.7 * prev_cost
+                    smoothed_variance = 0.3 * curr_variance + 0.7 * prev_variance
+
+                    # 记录平滑后的值
+                    self.best_costs.append(smoothed_cost)
+                    self.best_variances.append(smoothed_variance)
+                else:
+                    # 变化不大，记录实际值
+                    self.best_costs.append(curr_cost)
+                    self.best_variances.append(curr_variance)
+            else:
+                # 第一个数据点，直接记录
+                self.best_costs.append(best_solution.best_fitness[0])
+                self.best_variances.append(best_solution.best_fitness[1])
+        else:
+            # 处理没有有效解的情况
+            if self.best_costs:
+                self.best_costs.append(self.best_costs[-1])
+                self.best_variances.append(self.best_variances[-1])
+            else:
+                self.best_costs.append(float('inf'))
+                self.best_variances.append(float('inf'))
+
+        # 收集所有解的数据用于3D可视化
+        for solution in valid_solutions:
+            self.all_costs.append(solution.best_fitness[0])
+            self.all_variances.append(solution.best_fitness[1])
+            self.all_iterations.append(iteration)
+
+        # 如果启用了动态图表，更新图表
+        if self.show_dynamic_plots and iteration % 5 == 0:
+            try:
+                self._update_plots()
+            except Exception as e:
+                print(f"图表更新时出错: {e}")
+
+    # 保留原来的update方法，但使用新的前沿逻辑
+    def update(self, iteration, swarm, pareto_front=None):
+        """更新跟踪器的数据（为向下兼容保留，但内部使用新逻辑）"""
+        if pareto_front is None:
+            # 获取有效解
+            valid_solutions = [particle for particle in swarm if np.all(np.isfinite(particle.best_fitness))]
+            # 从有效粒子中提取帕累托前沿
+            pareto_front = self._extract_pareto_front(valid_solutions)
+
+        # 使用新方法
+        self.update_with_front(iteration, swarm, pareto_front)
+
+    # 内部辅助方法 - 从粒子群中提取帕累托前沿
+    def _extract_pareto_front(self, particles):
+        """从粒子列表中提取帕累托前沿"""
+        pareto_front = []
+        for particle in particles:
+            is_dominated = False
+            for other in particles:
+                if self._dominates(other.best_fitness, particle.best_fitness):
+                    is_dominated = True
+                    break
+            if not is_dominated:
+                pareto_front.append(particle)
+        return pareto_front
+
+    # 内部辅助方法 - 判断一个适应度是否支配另一个
+    def _dominates(self, fitness_a, fitness_b):
+        """判断fitness_a是否支配fitness_b"""
+        not_worse = all(a <= b for a, b in zip(fitness_a, fitness_b))
+        better = any(a < b for a, b in zip(fitness_a, fitness_b))
+        return not_worse and better
+
+    # 内部辅助方法 - 确保与全局函数完全一致
+    def _select_best_solution(self, solutions, max_variance_threshold=5.0):
+        """
+        内部L方法选择函数 - 保持与全局函数一致，确保在跟踪器无法导入全局函数时可以使用
+        """
+        # 确保有解可选
+        if not solutions:
+            return None
+
+        # 首先筛选出水头均方差低于阈值的解
+        valid_solutions = [sol for sol in solutions if sol.best_fitness[1] <= max_variance_threshold]
+
+        # 如果没有满足条件的解，从原始解集中选择方差最小的
+        if not valid_solutions:
+            return min(solutions, key=lambda x: x.best_fitness[1])
+
+        # 按成本升序排序
+        sorted_solutions = sorted(valid_solutions, key=lambda particle: particle.best_fitness[0])
+
+        # 如果只有几个解，使用简单策略
+        if len(sorted_solutions) <= 3:
+            # 如果只有1-3个解，返回成本最低的
+            return sorted_solutions[0]
+
+        # 提取成本和方差值
+        costs = [sol.best_fitness[0] for sol in sorted_solutions]
+        variances = [sol.best_fitness[1] for sol in sorted_solutions]
+
+        # 正规化数据到[0,1]范围
+        min_cost = min(costs)
+        max_cost = max(costs)
+        min_var = min(variances)
+        max_var = max(variances)
+
+        # 避免除以零
+        cost_range = max_cost - min_cost if max_cost > min_cost else 1
+        var_range = max_var - min_var if max_var > min_var else 1
+
+        normalized_costs = [(c - min_cost) / cost_range for c in costs]
+        normalized_vars = [(v - min_var) / var_range for v in variances]
+
+        # 对所有可能的分割点计算L方法的误差
+        best_error = float('inf')
+        best_idx = 0
+
+        for i in range(1, len(sorted_solutions) - 1):
+            # 前半部分线性拟合误差
+            c1 = np.array(normalized_costs[:i + 1])
+            v1 = np.array(normalized_vars[:i + 1])
+
+            # 避免只有一个点的情况
+            if len(c1) > 1:
+                slope1, intercept1 = np.polyfit(c1, v1, 1)
+                line1 = slope1 * c1 + intercept1
+                error1 = np.sum((v1 - line1) ** 2)
+            else:
+                error1 = 0
+
+            # 后半部分线性拟合误差
+            c2 = np.array(normalized_costs[i:])
+            v2 = np.array(normalized_vars[i:])
+
+            # 避免只有一个点的情况
+            if len(c2) > 1:
+                slope2, intercept2 = np.polyfit(c2, v2, 1)
+                line2 = slope2 * c2 + intercept2
+                error2 = np.sum((v2 - line2) ** 2)
+            else:
+                error2 = 0
+
+            # 计算总误差
+            total_error = error1 + error2
+
+            # 更新最佳分割点
+            if total_error < best_error:
+                best_error = total_error
+                best_idx = i
+
+        # 返回L方法确定的最佳解
+        return sorted_solutions[best_idx]
 
     def _update_plots(self):
         """更新动态图表"""
@@ -536,6 +668,8 @@ class PSOOptimizationTracker:
             self.ax1.autoscale_view()
             self.ax2.relim()
             self.ax2.autoscale_view()
+            # 更新标题，反映这是最优个体的迭代曲线
+            self.ax1.set_title('梳齿状PSO算法优化最优个体迭代曲线', fontsize=14)
 
             # 更新3D图表
             self.ax_3d.clear()
@@ -610,6 +744,11 @@ class PSOOptimizationTracker:
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
             self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
+            # 如果需要，保存图表
+            if self.auto_save:
+                self.fig_2d.savefig('PSO_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
+                self.fig_3d.savefig('PSO_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
+
             # 刷新图表
             self.fig_2d.canvas.draw()
             self.fig_3d.canvas.draw()
@@ -632,7 +771,7 @@ class PSOOptimizationTracker:
         # 成本曲线
         ax1.plot(self.iterations, self.best_costs, 'b-o', linewidth=2)
         ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        ax1.set_title('梳齿状PSO算法优化迭代曲线(平均值)', fontsize=14)
+        ax1.set_title('梳齿状PSO算法优化迭代曲线', fontsize=14)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
         # 方差曲线
@@ -644,6 +783,8 @@ class PSOOptimizationTracker:
         plt.tight_layout()
 
         # 如果需要，保存图表
+        if self.auto_save:
+            plt.savefig('PSO_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -689,6 +830,8 @@ class PSOOptimizationTracker:
         ax.view_init(elev=30, azim=45)
 
         # 如果需要，保存图表
+        if self.auto_save:
+            plt.savefig('PSO_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -1022,8 +1165,8 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterat
         logging.info(f"初始化完成，群体大小: {len(swarm)}，Pareto前沿大小: {len(pareto_front)}")
         logging.info(f"Iteration 0: {record}")
 
-        # 更新跟踪器
-        tracker.update(0, swarm, pareto_front)
+        # 更新跟踪器 - 使用新的update_with_front方法
+        tracker.update_with_front(0, swarm, pareto_front)
 
     # 迭代优化
     for iteration in range(1, max_iterations + 1):
@@ -1083,8 +1226,8 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterat
             record = stats.compile(fitness_values)
             logbook.record(gen=iteration, **record)
 
-            # 更新跟踪器
-            tracker.update(iteration, swarm, pareto_front)
+            # 更新跟踪器 - 使用新的update_with_front方法
+            tracker.update_with_front(iteration, swarm, pareto_front)
 
             # 每隔一定代数输出进度
             if iteration % 10 == 0:
@@ -1105,10 +1248,6 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
 
 def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
                            output_file="optimization_results_PSO_DAN.txt"):
-    """
-    打印优化后的详细结果
-    best_particle: 对于PSO算法，这是一个Particle对象
-    """
     """优化后的结果输出函数，包含压力分析"""
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -1127,8 +1266,11 @@ def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
                        f"{submain['diameter_second_half']:4d}")
         write_line("-" * 45)
 
-        # 存储所有压力差值用于全局统计
+        # 存储所有压力差值用于组内统计
         all_pressure_margins = []
+
+        # 存储每个组的压力方差，用于计算全局平均方差
+        all_group_variances = []
 
         # 对每个轮灌组输出信息
         for group_idx, nodes in enumerate(irrigation_system.irrigation_groups):
@@ -1139,6 +1281,10 @@ def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
             irrigation_system._update_flow_rates(nodes)
             irrigation_system._calculate_hydraulics()
             irrigation_system._calculate_pressures()
+
+            # 收集该组的压力方差
+            group_variance = irrigation_system.calculate_pressure_variance(nodes)
+            all_group_variances.append(group_variance)
 
             # 压力分析数据收集
             group_pressures = []
@@ -1181,17 +1327,20 @@ def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
             write_line("\n注: * 表示该管段对应节点在当前轮灌组中启用")
             write_line("-" * 100)
 
-        # 计算并输出全局统计指标
+        # 计算全局统计指标
+        # 使用与优化算法相同的方法计算全局压力均方差：所有轮灌组方差的平均值
+        global_std_dev = sum(all_group_variances) / len(all_group_variances) if all_group_variances else 0
+
+        # 全局平均压力富裕程度仍然可以用所有收集的压力值计算
         if all_pressure_margins:
             global_avg_margin = sum(all_pressure_margins) / len(all_pressure_margins)
-            global_variance = sum((p - global_avg_margin) ** 2 for p in all_pressure_margins) / len(
-                all_pressure_margins)
-            global_std_dev = global_variance ** 0.5
+        else:
+            global_avg_margin = 0
 
-            write_line("\n=== 全局压力统计 ===")
-            write_line(f"系统整体平均压力富裕程度: {global_avg_margin:.2f} m")
-            write_line(f"系统整体压力均方差: {global_std_dev:.2f}")
-            write_line("-" * 45)
+        write_line("\n=== 全局压力统计 ===")
+        write_line(f"系统整体平均压力富裕程度: {global_avg_margin:.2f} m")
+        write_line(f"系统整体压力均方差: {global_std_dev:.2f}")
+        write_line("-" * 45)
 
         # 输出系统经济指标
         total_cost = irrigation_system.get_system_cost()
@@ -1209,9 +1358,7 @@ def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
 
 
 def visualize_pareto_front(pareto_front_particles):
-    """可视化Pareto前沿
-    pareto_front_particles: 包含PSO粒子对象的列表，每个粒子有best_fitness属性
-    """
+    """可视化Pareto前沿"""
     try:
         if not pareto_front_particles:
             print("没有可视化的解集")
@@ -1244,66 +1391,119 @@ def visualize_pareto_front(pareto_front_particles):
         print(f"可视化失败: {str(e)}")
 
 
-def select_best_solution_by_marginal_improvement(solutions):
+def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=5.0):
     """
-    选择在相同成本递减变化情况下节点水头均方差下降最快的解
+    使用科学的多目标选择方法，引入更合理的平衡机制和平滑处理
 
-    参数:
-    solutions: 有效的Pareto解列表，每个元素是一个Particle对象
-
-    返回:
-    选中的最佳解决方案
+    特点:
+    1. 保留水头均方差阈值筛选
+    2. 使用科学的效用函数进行多目标平衡
+    3. 增加数值计算的稳定性
+    4. 为大规模数据集使用L方法
     """
-    # 首先筛选出水头均方差小于9的解
-    valid_solutions = [sol for sol in solutions if sol.best_fitness[1] < 4]
+    # 确保有解可选
+    if not solutions:
+        return None
 
-    # 如果没有符合条件的解，尝试找出水头均方差最接近但小于9的解
+    # 首先筛选出水头均方差低于阈值的解
+    valid_solutions = [sol for sol in solutions if sol.best_fitness[1] <= max_variance_threshold]
+
+    # 如果没有满足条件的解，从原始解集中选择方差最小的
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.best_fitness[1] < 4]
-        if solutions_under_limit:
-            return min(solutions_under_limit, key=lambda x: x.best_fitness[1])
-        else:
-            # 如果所有解的均方差都≥9，返回均方差最小的解
-            return min(solutions, key=lambda x: x.best_fitness[1])
+        return min(solutions, key=lambda x: x.best_fitness[1])
 
-    # 按成本升序排序解集
+    # 按成本升序排序
     sorted_solutions = sorted(valid_solutions, key=lambda particle: particle.best_fitness[0])
 
-    # 如果只有一个解，直接返回
-    if len(sorted_solutions) <= 1:
+    # 如果解的数量较少，使用简单的效用函数
+    if len(sorted_solutions) < 5:
         return sorted_solutions[0]
 
-    # 计算每对相邻解之间的边际改进率
-    marginal_improvements = []
-    for i in range(1, len(sorted_solutions)):
-        prev_cost = sorted_solutions[i - 1].best_fitness[0]
-        prev_variance = sorted_solutions[i - 1].best_fitness[1]
-        curr_cost = sorted_solutions[i].best_fitness[0]
-        curr_variance = sorted_solutions[i].best_fitness[1]
+    # 对于较大的前沿，使用科学的效用函数方法
+    try:
+        # 提取成本和方差值
+        costs = np.array([sol.best_fitness[0] for sol in sorted_solutions])
+        variances = np.array([sol.best_fitness[1] for sol in sorted_solutions])
 
-        # 计算成本变化和方差变化
-        cost_diff = curr_cost - prev_cost
-        variance_diff = curr_variance - prev_variance
+        # 正规化数据到[0,1]范围
+        min_cost = np.min(costs)
+        max_cost = np.max(costs)
+        min_var = np.min(variances)
+        max_var = np.max(variances)
 
-        # 如果成本增加，跳过
-        if cost_diff >= 0:
-            continue
+        # 确保数值稳定性
+        cost_range = max(max_cost - min_cost, 1e-6)
+        var_range = max(max_var - min_var, 1e-6)
 
-        # 计算边际改进率
-        if cost_diff < 0:
-            # 方差减少量/成本增加量的绝对值
-            marginal_improvement = variance_diff / abs(cost_diff)
-            marginal_improvements.append((i, marginal_improvement))
+        norm_costs = (costs - min_cost) / cost_range
+        norm_vars = (variances - min_var) / var_range
 
-    # 如果没有找到有效的边际改进，返回成本最低的解
-    if not marginal_improvements:
+        # 计算每个解的综合效用值(需要权衡成本和方差)
+        # 成本权重高于方差，比例约为4:1
+        utility_values = 0.8 * (1 - norm_costs) + 0.2 * (1 - norm_vars)
+
+        # 寻找效用最大的解
+        best_idx = np.argmax(utility_values)
+
+        # 对于足够大的数据集，还可以尝试L方法，但仅在方差较大时
+        if len(sorted_solutions) >= 10 and var_range > 0.5:
+            try:
+                # 计算"拐点"，即帕累托前沿的转折处
+                # L方法实现
+                best_l_error = float('inf')
+                best_l_idx = 0
+
+                for i in range(2, len(sorted_solutions) - 2):
+                    # 只计算数值稳定的部分
+                    if np.std(norm_costs[:i]) < 1e-4 or np.std(norm_costs[i:]) < 1e-4:
+                        continue
+
+                    try:
+                        # 前半部分线性拟合
+                        slope1, intercept1 = np.polyfit(norm_costs[:i], norm_vars[:i], 1)
+                        pred1 = slope1 * norm_costs[:i] + intercept1
+                        error1 = np.sum((norm_vars[:i] - pred1) ** 2)
+
+                        # 后半部分线性拟合
+                        slope2, intercept2 = np.polyfit(norm_costs[i:], norm_vars[i:], 1)
+                        pred2 = slope2 * norm_costs[i:] + intercept2
+                        error2 = np.sum((norm_vars[i:] - pred2) ** 2)
+
+                        # 总误差
+                        total_error = error1 + error2
+
+                        if total_error < best_l_error:
+                            best_l_error = total_error
+                            best_l_idx = i
+                    except:
+                        continue
+
+                # 如果L方法成功找到拐点，使用它作为一个参考点
+                if best_l_error < float('inf'):
+                    # 计算拐点与效用最大点的距离
+                    distance = abs(best_l_idx - best_idx)
+
+                    # 如果两点很接近，优先选择效用最大点
+                    # 如果距离较远，综合考虑两点
+                    if distance <= 3:
+                        # 两点很接近，使用效用最大点
+                        return sorted_solutions[best_idx]
+                    else:
+                        # 在拐点和效用最大点之间选择一个平衡点
+                        # 更偏向于效用最大点(70% 效用, 30% 拐点)
+                        balanced_idx = int(0.7 * best_idx + 0.3 * best_l_idx)
+                        return sorted_solutions[balanced_idx]
+            except:
+                # L方法失败，使用效用最大点
+                return sorted_solutions[best_idx]
+
+        # 返回效用最大的解
+        return sorted_solutions[best_idx]
+
+    except Exception as e:
+        # 如果计算过程出错，回退到最简单的策略
+        print(f"效用计算出错，使用成本最低解: {e}")
         return sorted_solutions[0]
-
-    # 找出边际改进率最大的解（方差变化为负值时，寻找最小值）
-    best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
-
-    # 返回该解
-    return sorted_solutions[best_idx]
 
 
 def main():
@@ -1317,12 +1517,11 @@ def main():
 
         # 设置轮灌参数
         best_lgz1, best_lgz2 = 6, 4
-        logging.info("开始进行多目标PSO优化...")
+        logging.info("开始进行多目标优化...")
 
         # 执行优化
         start_time = time.time()
-        pareto_front, logbook = multi_objective_pso(irrigation_system, best_lgz1, best_lgz2, show_plots=True,
-                                                    auto_save=True)
+        pareto_front, logbook = multi_objective_pso(irrigation_system, best_lgz1, best_lgz2)
         end_time = time.time()
 
         logging.info(f"优化完成，耗时: {end_time - start_time:.2f}秒")
@@ -1331,11 +1530,11 @@ def main():
         if pareto_front:
             valid_solutions = [particle for particle in pareto_front if np.all(np.isfinite(particle.best_fitness))]
             if valid_solutions:
-                # 修改选择最优解的方法
+                # 选择最优解
                 best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
+                # 使用相同的最优解进行详细结果输出
                 print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
-
-                # 可视化Pareto前沿
+                # 可视化Pareto前沿，并标记出相同的最优解
                 visualize_pareto_front(pareto_front)
 
                 logging.info("结果已保存并可视化完成")

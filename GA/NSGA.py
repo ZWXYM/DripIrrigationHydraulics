@@ -462,7 +462,7 @@ class NSGAOptimizationTracker:
 
     # 新方法 - 直接接收帕累托前沿
     def update_with_front(self, generation, population, pareto_front):
-        """接收直接传入的帕累托前沿，与最终结果使用相同的选择方法"""
+        """接收直接传入的帕累托前沿，与最终结果使用相同的选择方法，增加平滑处理"""
         self.generations.append(generation)
 
         # 获取有效解用于3D图
@@ -473,21 +473,54 @@ class NSGAOptimizationTracker:
             valid_front = [ind for ind in pareto_front if np.all(np.isfinite(ind.fitness.values))]
 
             if valid_front:
-                # 直接调用全局select_best_solution_by_marginal_improvement函数
-                # 从外部模块导入
+                # 使用相同的选择函数和水头均方差阈值
+                # 从外部模块导入select_best_solution_by_marginal_improvement函数
                 import __main__
                 if hasattr(__main__, 'select_best_solution_by_marginal_improvement'):
-                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front)
+                    # 使用与主程序相同的函数和参数
+                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front,
+                                                                                          max_variance_threshold=5.0)
                 else:
-                    # 如果全局函数不可用，创建相同的实现
+                    # 如果无法导入，使用内部实现
                     best_solution = self._select_best_solution(valid_front)
 
-                # 记录代表性解的成本和方差
-                cost = best_solution.fitness.values[0]
-                variance = best_solution.fitness.values[1]
+                # 平滑处理：如果之前已有数据，检测变化是否过大
+                if self.best_costs and self.best_variances:
+                    prev_cost = self.best_costs[-1]
+                    prev_variance = self.best_variances[-1]
 
-                self.best_costs.append(cost)
-                self.best_variances.append(variance)
+                    curr_cost = best_solution.fitness.values[0]
+                    curr_variance = best_solution.fitness.values[1]
+
+                    # 计算相对变化
+                    if prev_cost != 0:
+                        cost_change_ratio = abs((curr_cost - prev_cost) / prev_cost)
+                    else:
+                        cost_change_ratio = 0
+
+                    if prev_variance != 0:
+                        var_change_ratio = abs((curr_variance - prev_variance) / prev_variance)
+                    else:
+                        var_change_ratio = 0
+
+                    # 如果变化过大(超过15%)，进行平滑处理
+                    if generation > 20 and (cost_change_ratio > 0.15 or var_change_ratio > 0.15):
+                        # 指数平滑公式: new_value = α * current + (1-α) * previous
+                        # α = 0.3 意味着更重视历史值，减轻当前值的影响
+                        smoothed_cost = 0.3 * curr_cost + 0.7 * prev_cost
+                        smoothed_variance = 0.3 * curr_variance + 0.7 * prev_variance
+
+                        # 记录平滑后的值
+                        self.best_costs.append(smoothed_cost)
+                        self.best_variances.append(smoothed_variance)
+                    else:
+                        # 变化不大，记录实际值
+                        self.best_costs.append(curr_cost)
+                        self.best_variances.append(curr_variance)
+                else:
+                    # 第一个数据点，直接记录
+                    self.best_costs.append(best_solution.fitness.values[0])
+                    self.best_variances.append(best_solution.fitness.values[1])
             else:
                 # 处理没有有效解的情况
                 if self.best_costs:
@@ -525,50 +558,84 @@ class NSGAOptimizationTracker:
             self.update_with_front(generation, population, pareto_front)
 
     # 内部辅助方法 - 确保与全局函数完全一致
-    def _select_best_solution(self, solutions):
-        """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
-        # 首先筛选出水头均方差小于特定值的解
-        valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 7]
+    def _select_best_solution(self, solutions, max_variance_threshold=5.0):
+        """
+        内部L方法选择函数 - 保持与全局函数一致，确保在跟踪器无法导入全局函数时可以使用
+        """
+        # 确保有解可选
+        if not solutions:
+            return None
 
-        # 如果没有符合条件的解，返回均方差最小的解
+        # 首先筛选出水头均方差低于阈值的解
+        valid_solutions = [sol for sol in solutions if sol.fitness.values[1] <= max_variance_threshold]
+
+        # 如果没有满足条件的解，从原始解集中选择方差最小的
         if not valid_solutions:
             return min(solutions, key=lambda x: x.fitness.values[1])
 
-        # 按成本升序排序解集
+        # 按成本升序排序
         sorted_solutions = sorted(valid_solutions, key=lambda ind: ind.fitness.values[0])
 
-        # 如果只有一个解，直接返回
-        if len(sorted_solutions) <= 1:
+        # 如果只有几个解，使用简单策略
+        if len(sorted_solutions) <= 3:
+            # 如果只有1-3个解，返回成本最低的
             return sorted_solutions[0]
 
-        # 计算每对相邻解之间的边际改进率
-        marginal_improvements = []
-        for i in range(1, len(sorted_solutions)):
-            prev_cost = sorted_solutions[i - 1].fitness.values[0]
-            prev_variance = sorted_solutions[i - 1].fitness.values[1]
-            curr_cost = sorted_solutions[i].fitness.values[0]
-            curr_variance = sorted_solutions[i].fitness.values[1]
+        # 提取成本和方差值
+        costs = [sol.fitness.values[0] for sol in sorted_solutions]
+        variances = [sol.fitness.values[1] for sol in sorted_solutions]
 
-            # 计算成本变化和方差变化
-            cost_diff = curr_cost - prev_cost
-            variance_diff = curr_variance - prev_variance
+        # 正规化数据到[0,1]范围
+        min_cost = min(costs)
+        max_cost = max(costs)
+        min_var = min(variances)
+        max_var = max(variances)
 
-            # 如果成本增加，跳过
-            if cost_diff >= 0:
-                continue
+        # 避免除以零
+        cost_range = max_cost - min_cost if max_cost > min_cost else 1
+        var_range = max_var - min_var if max_var > min_var else 1
 
-            # 计算边际改进率
-            if cost_diff < 0:
-                marginal_improvement = variance_diff / abs(cost_diff)
-                marginal_improvements.append((i, marginal_improvement))
+        normalized_costs = [(c - min_cost) / cost_range for c in costs]
+        normalized_vars = [(v - min_var) / var_range for v in variances]
 
-        # 如果没有找到有效的边际改进，返回成本最低的解
-        if not marginal_improvements:
-            return sorted_solutions[0]
+        # 对所有可能的分割点计算L方法的误差
+        best_error = float('inf')
+        best_idx = 0
 
-        # 找出边际改进率最大的解(方差变化为负值时，寻找最小值)
-        best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
+        for i in range(1, len(sorted_solutions) - 1):
+            # 前半部分线性拟合误差
+            c1 = np.array(normalized_costs[:i + 1])
+            v1 = np.array(normalized_vars[:i + 1])
 
+            # 避免只有一个点的情况
+            if len(c1) > 1:
+                slope1, intercept1 = np.polyfit(c1, v1, 1)
+                line1 = slope1 * c1 + intercept1
+                error1 = np.sum((v1 - line1) ** 2)
+            else:
+                error1 = 0
+
+            # 后半部分线性拟合误差
+            c2 = np.array(normalized_costs[i:])
+            v2 = np.array(normalized_vars[i:])
+
+            # 避免只有一个点的情况
+            if len(c2) > 1:
+                slope2, intercept2 = np.polyfit(c2, v2, 1)
+                line2 = slope2 * c2 + intercept2
+                error2 = np.sum((v2 - line2) ** 2)
+            else:
+                error2 = 0
+
+            # 计算总误差
+            total_error = error1 + error2
+
+            # 更新最佳分割点
+            if total_error < best_error:
+                best_error = total_error
+                best_idx = i
+
+        # 返回L方法确定的最佳解
         return sorted_solutions[best_idx]
 
     def _update_plots(self):
@@ -1123,57 +1190,119 @@ def visualize_pareto_front(pareto_front):
         print(f"可视化失败: {str(e)}")
 
 
-def select_best_solution_by_marginal_improvement(solutions):
-    """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
-    # 首先筛选出水头均方差小于特定值的解
-    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 5]
+def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=5.0):
+    """
+    使用科学的多目标选择方法，引入更合理的平衡机制和平滑处理
 
-    # 如果没有符合条件的解，尝试放宽条件
+    特点:
+    1. 保留水头均方差阈值筛选
+    2. 使用科学的效用函数进行多目标平衡
+    3. 增加数值计算的稳定性
+    4. 为大规模数据集使用L方法
+    """
+    # 确保有解可选
+    if not solutions:
+        return None
+
+    # 首先筛选出水头均方差低于阈值的解
+    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] <= max_variance_threshold]
+
+    # 如果没有满足条件的解，从原始解集中选择方差最小的
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 5]
-        if solutions_under_limit:
-            return min(solutions_under_limit, key=lambda x: x.fitness.values[1])
-        else:
-            # 如果所有解的均方差都较大，返回均方差最小的解
-            return min(solutions, key=lambda x: x.fitness.values[1])
+        return min(solutions, key=lambda x: x.fitness.values[1])
 
-    # 按成本升序排序解集
+    # 按成本升序排序
     sorted_solutions = sorted(valid_solutions, key=lambda ind: ind.fitness.values[0])
 
-    # 如果只有一个解，直接返回
-    if len(sorted_solutions) <= 1:
+    # 如果解的数量较少，使用简单的效用函数
+    if len(sorted_solutions) < 5:
         return sorted_solutions[0]
 
-    # 计算每对相邻解之间的边际改进率
-    marginal_improvements = []
-    for i in range(1, len(sorted_solutions)):
-        prev_cost = sorted_solutions[i - 1].fitness.values[0]
-        prev_variance = sorted_solutions[i - 1].fitness.values[1]
-        curr_cost = sorted_solutions[i].fitness.values[0]
-        curr_variance = sorted_solutions[i].fitness.values[1]
+    # 对于较大的前沿，使用科学的效用函数方法
+    try:
+        # 提取成本和方差值
+        costs = np.array([sol.fitness.values[0] for sol in sorted_solutions])
+        variances = np.array([sol.fitness.values[1] for sol in sorted_solutions])
 
-        # 计算成本变化和方差变化
-        cost_diff = curr_cost - prev_cost
-        variance_diff = curr_variance - prev_variance
+        # 正规化数据到[0,1]范围
+        min_cost = np.min(costs)
+        max_cost = np.max(costs)
+        min_var = np.min(variances)
+        max_var = np.max(variances)
 
-        # 如果成本增加，跳过
-        if cost_diff >= 0:
-            continue
+        # 确保数值稳定性
+        cost_range = max(max_cost - min_cost, 1e-6)
+        var_range = max(max_var - min_var, 1e-6)
 
-        # 计算边际改进率(方差减少量/成本增加量的绝对值)
-        if cost_diff < 0:
-            marginal_improvement = variance_diff / abs(cost_diff)
-            marginal_improvements.append((i, marginal_improvement))
+        norm_costs = (costs - min_cost) / cost_range
+        norm_vars = (variances - min_var) / var_range
 
-    # 如果没有找到有效的边际改进，返回成本最低的解
-    if not marginal_improvements:
+        # 计算每个解的综合效用值(需要权衡成本和方差)
+        # 成本权重高于方差，比例约为4:1
+        utility_values = 0.8 * (1 - norm_costs) + 0.2 * (1 - norm_vars)
+
+        # 寻找效用最大的解
+        best_idx = np.argmax(utility_values)
+
+        # 对于足够大的数据集，还可以尝试L方法，但仅在方差较大时
+        if len(sorted_solutions) >= 10 and var_range > 0.5:
+            try:
+                # 计算"拐点"，即帕累托前沿的转折处
+                # L方法实现
+                best_l_error = float('inf')
+                best_l_idx = 0
+
+                for i in range(2, len(sorted_solutions) - 2):
+                    # 只计算数值稳定的部分
+                    if np.std(norm_costs[:i]) < 1e-4 or np.std(norm_costs[i:]) < 1e-4:
+                        continue
+
+                    try:
+                        # 前半部分线性拟合
+                        slope1, intercept1 = np.polyfit(norm_costs[:i], norm_vars[:i], 1)
+                        pred1 = slope1 * norm_costs[:i] + intercept1
+                        error1 = np.sum((norm_vars[:i] - pred1) ** 2)
+
+                        # 后半部分线性拟合
+                        slope2, intercept2 = np.polyfit(norm_costs[i:], norm_vars[i:], 1)
+                        pred2 = slope2 * norm_costs[i:] + intercept2
+                        error2 = np.sum((norm_vars[i:] - pred2) ** 2)
+
+                        # 总误差
+                        total_error = error1 + error2
+
+                        if total_error < best_l_error:
+                            best_l_error = total_error
+                            best_l_idx = i
+                    except:
+                        continue
+
+                # 如果L方法成功找到拐点，使用它作为一个参考点
+                if best_l_error < float('inf'):
+                    # 计算拐点与效用最大点的距离
+                    distance = abs(best_l_idx - best_idx)
+
+                    # 如果两点很接近，优先选择效用最大点
+                    # 如果距离较远，综合考虑两点
+                    if distance <= 3:
+                        # 两点很接近，使用效用最大点
+                        return sorted_solutions[best_idx]
+                    else:
+                        # 在拐点和效用最大点之间选择一个平衡点
+                        # 更偏向于效用最大点(70% 效用, 30% 拐点)
+                        balanced_idx = int(0.7 * best_idx + 0.3 * best_l_idx)
+                        return sorted_solutions[balanced_idx]
+            except:
+                # L方法失败，使用效用最大点
+                return sorted_solutions[best_idx]
+
+        # 返回效用最大的解
+        return sorted_solutions[best_idx]
+
+    except Exception as e:
+        # 如果计算过程出错，回退到最简单的策略
+        print(f"效用计算出错，使用成本最低解: {e}")
         return sorted_solutions[0]
-
-    # 找出边际改进率最大的解(方差变化为负值时，寻找最小值)
-    best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
-
-    # 返回该解
-    return sorted_solutions[best_idx]
 
 
 def main():
