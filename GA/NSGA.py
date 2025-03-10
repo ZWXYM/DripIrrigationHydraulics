@@ -460,10 +460,82 @@ class NSGAOptimizationTracker:
         self.fig_3d.canvas.draw()
         self.fig_3d.canvas.flush_events()
 
-    def select_best_solution_by_marginal_improvement(self, solutions):
+    # 新方法 - 直接接收帕累托前沿
+    def update_with_front(self, generation, population, pareto_front):
+        """接收直接传入的帕累托前沿，与最终结果使用相同的选择方法"""
+        self.generations.append(generation)
+
+        # 获取有效解用于3D图
+        valid_solutions = [ind for ind in population if np.all(np.isfinite(ind.fitness.values))]
+
+        if pareto_front and len(pareto_front) > 0:
+            # 直接使用与主函数相同的选择策略
+            valid_front = [ind for ind in pareto_front if np.all(np.isfinite(ind.fitness.values))]
+
+            if valid_front:
+                # 直接调用全局select_best_solution_by_marginal_improvement函数
+                # 从外部模块导入
+                import __main__
+                if hasattr(__main__, 'select_best_solution_by_marginal_improvement'):
+                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front)
+                else:
+                    # 如果全局函数不可用，创建相同的实现
+                    best_solution = self._select_best_solution(valid_front)
+
+                # 记录代表性解的成本和方差
+                cost = best_solution.fitness.values[0]
+                variance = best_solution.fitness.values[1]
+
+                self.best_costs.append(cost)
+                self.best_variances.append(variance)
+            else:
+                # 处理没有有效解的情况
+                if self.best_costs:
+                    self.best_costs.append(self.best_costs[-1])
+                    self.best_variances.append(self.best_variances[-1])
+                else:
+                    self.best_costs.append(float('inf'))
+                    self.best_variances.append(float('inf'))
+
+        # 收集所有解的数据用于3D可视化
+        for solution in valid_solutions:
+            self.all_costs.append(solution.fitness.values[0])
+            self.all_variances.append(solution.fitness.values[1])
+            self.all_generations.append(generation)
+
+        # 如果启用了动态图表，更新图表
+        if self.show_dynamic_plots and generation % 5 == 0:
+            try:
+                self._update_plots()
+            except Exception as e:
+                print(f"图表更新时出错: {e}")
+
+    # 保留原来的update方法，但使用新的帕累托逻辑
+    def update(self, generation, population):
+        """更新跟踪器的数据（为向下兼容保留，但内部使用新逻辑）"""
+        # 获取有效解
+        valid_solutions = [ind for ind in population if np.all(np.isfinite(ind.fitness.values))]
+
+        if valid_solutions:
+            # 从DEAP工具库导入sortNondominated
+            from deap import tools
+            # 提取帕累托前沿
+            pareto_front = tools.sortNondominated(valid_solutions, len(valid_solutions), first_front_only=True)[0]
+            # 使用新方法
+            self.update_with_front(generation, population, pareto_front)
+
+    # 内部辅助方法 - 确保与全局函数完全一致
+    def _select_best_solution(self, solutions):
         """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
+        # 首先筛选出水头均方差小于特定值的解
+        valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 7]
+
+        # 如果没有符合条件的解，返回均方差最小的解
+        if not valid_solutions:
+            return min(solutions, key=lambda x: x.fitness.values[1])
+
         # 按成本升序排序解集
-        sorted_solutions = sorted(solutions, key=lambda ind: ind.fitness.values[0])
+        sorted_solutions = sorted(valid_solutions, key=lambda ind: ind.fitness.values[0])
 
         # 如果只有一个解，直接返回
         if len(sorted_solutions) <= 1:
@@ -494,43 +566,10 @@ class NSGAOptimizationTracker:
         if not marginal_improvements:
             return sorted_solutions[0]
 
-        # 找出边际改进率最大的解
+        # 找出边际改进率最大的解(方差变化为负值时，寻找最小值)
         best_idx, _ = min(marginal_improvements, key=lambda x: x[1])
 
         return sorted_solutions[best_idx]
-
-    def update(self, generation, population):
-        """更新跟踪器的数据"""
-        self.generations.append(generation)
-
-        # 获取有效解
-        valid_solutions = [ind for ind in population if np.all(np.isfinite(ind.fitness.values))]
-
-        if valid_solutions:
-            # 获取当前代的帕累托前沿解
-            pareto_fronts = tools.sortNondominated(valid_solutions, len(valid_solutions))
-            pareto_front = pareto_fronts[0]  # 第一个前沿就是帕累托前沿
-
-            # 计算帕累托前沿解的平均成本和平均水头均方差
-            avg_cost = np.mean([ind.fitness.values[0] for ind in pareto_front])
-            avg_variance = np.mean([ind.fitness.values[1] for ind in pareto_front])
-
-            # 记录平均值
-            self.best_costs.append(avg_cost)
-            self.best_variances.append(avg_variance)
-
-            # 收集所有解的数据用于3D可视化
-            for solution in valid_solutions:
-                self.all_costs.append(solution.fitness.values[0])
-                self.all_variances.append(solution.fitness.values[1])
-                self.all_generations.append(generation)
-
-            # 如果启用了动态图表，更新图表
-            if self.show_dynamic_plots and generation % 5 == 0:  # 每5代更新一次图表
-                try:
-                    self._update_plots()
-                except Exception as e:
-                    print(f"图表更新时出错: {e}")
 
     def _update_plots(self):
         """更新动态图表"""
@@ -548,7 +587,7 @@ class NSGAOptimizationTracker:
             self.ax2.relim()
             self.ax2.autoscale_view()
             # 更新标题，反映这是帕累托解的平均值
-            self.ax1.set_title('梳齿状NSGA-II算法优化迭代曲线 (平均值)', fontsize=14)
+            self.ax1.set_title('梳齿状NSGA-II算法优化最优个体迭代曲线', fontsize=14)
 
             # 更新3D图表
             self.ax_3d.clear()
@@ -725,7 +764,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
         del creator.Individual
 
     # 创建跟踪器
-    tracker = NSGAOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save)  # 启用动态图表、关闭自动保存
+    tracker = NSGAOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save)
 
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
@@ -908,8 +947,9 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     record = stats.compile(population)
     logbook.record(gen=0, **record)
 
-    # 更新跟踪器
-    tracker.update(0, population)
+    # 提取帕累托前沿并更新跟踪器 - 关键修改
+    current_front = tools.sortNondominated(population, len(population), first_front_only=True)[0]
+    tracker.update_with_front(0, population, current_front)
 
     # 演化过程
     for gen in range(1, 100):
@@ -923,8 +963,9 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
         record = stats.compile(population)
         logbook.record(gen=gen, **record)
 
-        # 更新跟踪器
-        tracker.update(gen, population)
+        # 提取帕累托前沿并更新跟踪器 - 关键修改
+        current_front = tools.sortNondominated(population, len(population), first_front_only=True)[0]
+        tracker.update_with_front(gen, population, current_front)
 
         # 输出进度
         if gen % 10 == 0:
@@ -1085,11 +1126,11 @@ def visualize_pareto_front(pareto_front):
 def select_best_solution_by_marginal_improvement(solutions):
     """选择在相同成本递减变化情况下节点水头均方差下降最快的解"""
     # 首先筛选出水头均方差小于特定值的解
-    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 7]
+    valid_solutions = [sol for sol in solutions if sol.fitness.values[1] < 5]
 
     # 如果没有符合条件的解，尝试放宽条件
     if not valid_solutions:
-        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 7]
+        solutions_under_limit = [sol for sol in solutions if sol.fitness.values[1] < 5]
         if solutions_under_limit:
             return min(solutions_under_limit, key=lambda x: x.fitness.values[1])
         else:
