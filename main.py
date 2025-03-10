@@ -8,6 +8,7 @@ import threading
 import psutil
 from pathlib import Path
 import re
+import csv
 
 # 配置日志
 logging.basicConfig(
@@ -48,36 +49,47 @@ def create_directory_structure():
     return True
 
 
-def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2):
+def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou):
     """修改算法文件中的参数"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             code = f.read()
 
-        # 检查文件类型（梳齿还是丰字）
-        is_shuang = "shuang" in file_path.lower()
+        # 修改IrrigationSystem初始化部分，直接查找并替换整个初始化行
+        # 查找系统初始化的常规模式
+        pattern1 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\s*\(\s*\n\s*node_count=\d+[^)]*\)')
 
-        # 修改创建IrrigationSystem的节点数
-        if is_shuang:
-            # 丰字布局文件
-            code = re.sub(r'irrigation_system = IrrigationSystem\(\s*\n\s*node_count=\d+',
-                          f'irrigation_system = IrrigationSystem(\n            node_count={node_count}',
-                          code)
+        # 如果找到了匹配，进行替换
+        if pattern1.search(code):
+            code = pattern1.sub(
+                f'irrigation_system = IrrigationSystem(\n            node_count={node_count},\n            rukoushuitou={rukoushuitou})',
+                code)
         else:
-            # 梳齿布局文件
-            code = re.sub(r'irrigation_system = IrrigationSystem\(\s*\n\s*node_count=\d+',
-                          f'irrigation_system = IrrigationSystem(\n            node_count={node_count}',
-                          code)
+            # 尝试另一种模式：单行初始化
+            pattern2 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\s*\(\s*node_count=\d+[^)]*\)')
+            if pattern2.search(code):
+                code = pattern2.sub(
+                    f'irrigation_system = IrrigationSystem(node_count={node_count}, rukoushuitou={rukoushuitou})', code)
+            else:
+                # 如果以上模式都不匹配，尝试更宽松的匹配
+                pattern3 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\([^)]*\)')
+                if pattern3.search(code):
+                    code = pattern3.sub(
+                        f'irrigation_system = IrrigationSystem(node_count={node_count}, rukoushuitou={rukoushuitou})',
+                        code)
 
         # 修改lgz1和lgz2参数
-        code = re.sub(r'best_lgz1, best_lgz2 = \d+, \d+',
-                      f'best_lgz1, best_lgz2 = {lgz1}, {lgz2}',
-                      code)
+        lgz_pattern = re.compile(r'best_lgz1,\s*best_lgz2\s*=\s*\d+,\s*\d+')
+        if lgz_pattern.search(code):
+            code = lgz_pattern.sub(f'best_lgz1, best_lgz2 = {lgz1}, {lgz2}', code)
 
-        # 性能优化：调整显示效率
-        code = re.sub(r'if self.show_dynamic_plots and (iteration|generation) % 5 == 0:',
-                      r'if self.show_dynamic_plots and \1 % 10 == 0:',
-                      code)
+        # 修改输出格式，使管段编号右对齐
+        # 查找并替换write_line()调用中的格式字符串
+        code = re.sub(r'{i:2d}', r'{i:>2d}', code)  # 将左对齐改为右对齐
+        code = re.sub(r'f"{i:2d}', r'f"{i:>2d}', code)  # 包含字符串前缀的情况
+
+        # 替换可能存在的其他格式
+        code = re.sub(r'编号\s+后端距起点', r'编号    后端距起点', code)  # 确保表头对齐
 
         # 创建临时文件
         temp_file = f"temp_{os.path.basename(file_path)}"
@@ -90,7 +102,7 @@ def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2):
         return None
 
 
-def run_optimization(algorithm_file, node_count, lgz1, lgz2):
+def run_optimization(algorithm_file, node_count, lgz1, lgz2, rukoushuitou):
     """运行单个优化算法"""
     try:
         # 获取算法名称用于显示
@@ -105,10 +117,10 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2):
             else:
                 algo_name = "NSGA-II梳齿布局"
 
-        logging.info(f"准备运行 {algo_name} (节点: {node_count}, lgz1: {lgz1}, lgz2: {lgz2})")
+        logging.info(f"准备运行 {algo_name} (节点: {node_count}, lgz1: {lgz1}, lgz2: {lgz2}, 入口水头: {rukoushuitou})")
 
         # 修改参数并创建临时文件
-        temp_file = modify_algorithm_parameters(algorithm_file, node_count, lgz1, lgz2)
+        temp_file = modify_algorithm_parameters(algorithm_file, node_count, lgz1, lgz2, rukoushuitou)
         if not temp_file:
             logging.error(f"无法为 {algo_name} 创建临时文件")
             return None
@@ -190,6 +202,86 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2):
         return None
 
 
+def convert_txt_to_csv(txt_file):
+    """将TXT结果文件转换为CSV格式"""
+    if not os.path.exists(txt_file):
+        logging.warning(f"文件不存在，无法转换: {txt_file}")
+        return None
+
+    try:
+        # 创建CSV文件名
+        csv_file = txt_file.replace('.txt', '.csv')
+
+        # 读取TXT文件
+        with open(txt_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # 查找并解析不同部分
+        sections = []
+        current_section = []
+        in_table = False
+        table_header = None
+
+        for line in content.split('\n'):
+            # 检测表格开始（标题行通常有多个连字符）
+            if '---' in line and len(line.strip()) > 10:
+                in_table = True
+                # 上一行可能是表头
+                if current_section and current_section[-1].strip() and '---' not in current_section[-1]:
+                    table_header = current_section[-1]
+                    current_section = current_section[:-1]  # 移除表头(会在后面单独处理)
+                # 保存当前部分
+                if current_section:
+                    sections.append((False, current_section))
+                current_section = []
+                if table_header:
+                    current_section.append(table_header)
+                    table_header = None
+                continue
+
+            # 检测表格结束（空行或新段落开始）
+            if in_table and (not line.strip() or '===' in line):
+                in_table = False
+                if current_section:
+                    sections.append((True, current_section))
+                current_section = []
+                continue
+
+            # 普通行，添加到当前部分
+            current_section.append(line)
+
+        # 添加最后一个部分
+        if current_section:
+            sections.append((in_table, current_section))
+
+        # 打开CSV文件进行写入
+        with open(csv_file, 'w', encoding='utf-8', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+
+            # 写入每个部分
+            for is_table, section in sections:
+                if is_table:
+                    # 处理表格部分
+                    for row in section:
+                        # 清理和分割行
+                        cells = [cell.strip() for cell in row.split('  ') if cell.strip()]
+                        # 过滤掉全空行
+                        if cells:
+                            writer.writerow(cells)
+                else:
+                    # 处理非表格部分 - 将它们作为注释写入
+                    for line in section:
+                        if line.strip():
+                            writer.writerow(['# ' + line.strip()])
+
+        logging.info(f"已将 {txt_file} 转换为 {csv_file}")
+        return csv_file
+
+    except Exception as e:
+        logging.error(f"转换文件 {txt_file} 为CSV时出错: {str(e)}")
+        return None
+
+
 def check_system_resources():
     """检查系统资源"""
     cpu_count = psutil.cpu_count(logical=True)
@@ -203,6 +295,14 @@ def get_interactive_params():
 
     print("\n== 交互式参数输入 ==")
     print("(按Enter键使用默认值)")
+
+    # 统一参数
+    try:
+        rukoushuitou_input = input("\n入口水头压力(米) [默认:50]: ").strip()
+        params['rukoushuitou'] = float(rukoushuitou_input) if rukoushuitou_input else 50
+    except ValueError:
+        print("  输入无效，将使用默认值")
+        params['rukoushuitou'] = 50
 
     # 梳齿布局参数
     print("\n梳齿布局参数:")
@@ -273,6 +373,9 @@ def main():
     parser.add_argument('--lgz1-fengzi', type=int, help='丰字布局轮灌组参数lgz1')
     parser.add_argument('--lgz2-fengzi', type=int, help='丰字布局轮灌组参数lgz2')
 
+    # 通用参数
+    parser.add_argument('--rukoushuitou', type=float, help='入口水头压力(米)')
+
     # 执行选项
     parser.add_argument('--sequential', action='store_true', help='顺序执行算法而不是并行执行')
     parser.add_argument('--timeout', type=int, help='执行超时时间（秒，0表示不限时间）')
@@ -289,6 +392,7 @@ def main():
             cmd_args.nodes_fengzi is None or
             cmd_args.lgz1_fengzi is None or
             cmd_args.lgz2_fengzi is None or
+            cmd_args.rukoushuitou is None or
             cmd_args.timeout is None
     ):
         interactive_params = get_interactive_params()
@@ -316,6 +420,9 @@ def main():
     args.lgz2_fengzi = cmd_args.lgz2_fengzi if cmd_args.lgz2_fengzi is not None else interactive_params.get(
         'lgz2_fengzi', 2)
 
+    args.rukoushuitou = cmd_args.rukoushuitou if cmd_args.rukoushuitou is not None else interactive_params.get(
+        'rukoushuitou', 50)
+
     args.sequential = cmd_args.sequential if cmd_args.sequential else interactive_params.get('sequential', False)
     args.timeout = cmd_args.timeout if cmd_args.timeout is not None else interactive_params.get('timeout', 0)
 
@@ -337,6 +444,8 @@ def main():
 
     # 打印运行参数
     print(f"\n运行参数:")
+    print(f"  通用参数:")
+    print(f"    - 入口水头压力: {args.rukoushuitou}米")
     print(f"  梳齿布局参数:")
     print(f"    - 节点数量: {args.nodes_shuzi}")
     print(f"    - 轮灌组参数lgz1: {args.lgz1_shuzi}")
@@ -346,20 +455,20 @@ def main():
     print(f"    - 轮灌组参数lgz1: {args.lgz1_fengzi}")
     print(f"    - 轮灌组参数lgz2: {args.lgz2_fengzi}")
 
-    # 设置运行的优化算法列表
-    algorithms = [
-        {"file": "PSO/PSO.py", "type": "shuzi", "name": "PSO梳齿布局"},
-        {"file": "PSO/shuangPSO.py", "type": "fengzi", "name": "PSO丰字布局"},
-        {"file": "GA/NSGA.py", "type": "shuzi", "name": "NSGA-II梳齿布局"},
-        {"file": "GA/shuangNSGA.py", "type": "fengzi", "name": "NSGA-II丰字布局"}
-    ]
-
-    # 运行优化算法
-    running_processes = []
-
-    print("\n开始运行优化算法...")
+    print("\n开始运行优化算法...\n")
 
     try:
+        # 创建灌溉系统优化算法列表
+        algorithms = [
+            {"file": "PSO/PSO.py", "type": "shuzi", "name": "PSO梳齿布局"},
+            {"file": "PSO/shuangPSO.py", "type": "fengzi", "name": "PSO丰字布局"},
+            {"file": "GA/NSGA.py", "type": "shuzi", "name": "NSGA-II梳齿布局"},
+            {"file": "GA/shuangNSGA.py", "type": "fengzi", "name": "NSGA-II丰字布局"}
+        ]
+
+        # 运行优化算法
+        running_processes = []
+
         if args.sequential:
             # 顺序执行
             for algo in algorithms:
@@ -375,8 +484,10 @@ def main():
                     lgz1 = args.lgz1_fengzi
                     lgz2 = args.lgz2_fengzi
 
+                rukoushuitou = args.rukoushuitou
+
                 # 运行算法
-                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2)
+                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2, rukoushuitou)
 
                 if process_info:
                     print(f"  {algo['name']} 已启动，等待完成...")
@@ -391,7 +502,7 @@ def main():
                     print(f"  {algo['name']} 启动失败！")
         else:
             # 并行执行
-            print("正在并行启动所有算法...")
+            print(f"正在并行启动所有算法...")
 
             for algo in algorithms:
                 # 根据布局类型选择对应的参数
@@ -404,8 +515,10 @@ def main():
                     lgz1 = args.lgz1_fengzi
                     lgz2 = args.lgz2_fengzi
 
+                rukoushuitou = args.rukoushuitou
+
                 # 运行算法
-                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2)
+                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2, rukoushuitou)
 
                 if process_info:
                     print(f"  {algo['name']} 已启动！")
@@ -485,6 +598,10 @@ def main():
         file_size = os.path.getsize(pso_result_file) / 1024  # KB
         print(f"  PSO梳齿布局: 结果文件 {pso_result_file} ({file_size:.1f} KB)")
         result_files.append((pso_result_file, "PSO梳齿布局"))
+        # 转换为CSV
+        csv_file = convert_txt_to_csv(pso_result_file)
+        if csv_file:
+            print(f"    已转换为CSV: {csv_file}")
     else:
         print(f"  PSO梳齿布局: 未找到结果文件")
 
@@ -492,6 +609,10 @@ def main():
         file_size = os.path.getsize(pso_shuang_result_file) / 1024  # KB
         print(f"  PSO丰字布局: 结果文件 {pso_shuang_result_file} ({file_size:.1f} KB)")
         result_files.append((pso_shuang_result_file, "PSO丰字布局"))
+        # 转换为CSV
+        csv_file = convert_txt_to_csv(pso_shuang_result_file)
+        if csv_file:
+            print(f"    已转换为CSV: {csv_file}")
     else:
         print(f"  PSO丰字布局: 未找到结果文件")
 
@@ -503,6 +624,10 @@ def main():
         file_size = os.path.getsize(nsga_result_file) / 1024  # KB
         print(f"  NSGA-II梳齿布局: 结果文件 {nsga_result_file} ({file_size:.1f} KB)")
         result_files.append((nsga_result_file, "NSGA-II梳齿布局"))
+        # 转换为CSV
+        csv_file = convert_txt_to_csv(nsga_result_file)
+        if csv_file:
+            print(f"    已转换为CSV: {csv_file}")
     else:
         print(f"  NSGA-II梳齿布局: 未找到结果文件")
 
@@ -510,6 +635,10 @@ def main():
         file_size = os.path.getsize(nsga_shuang_result_file) / 1024  # KB
         print(f"  NSGA-II丰字布局: 结果文件 {nsga_shuang_result_file} ({file_size:.1f} KB)")
         result_files.append((nsga_shuang_result_file, "NSGA-II丰字布局"))
+        # 转换为CSV
+        csv_file = convert_txt_to_csv(nsga_shuang_result_file)
+        if csv_file:
+            print(f"    已转换为CSV: {csv_file}")
     else:
         print(f"  NSGA-II丰字布局: 未找到结果文件")
 

@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from deap import base, creator, tools, algorithms
 
-
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
 DEFAULT_NODE_SPACING = 400  # 默认节点间距（米）
@@ -17,7 +16,7 @@ DEFAULT_AUXILIARY_LENGTH = 50  # 默认辅助农管长度（米）
 DEFAULT_DRIP_LINE_LENGTH = 50  # 默认滴灌带长度（米）
 DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
-DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
+# DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
 PRESSURE_BASELINE = 23.8  # 基准压力值
 
@@ -100,7 +99,7 @@ def pressure_loss(diameter, length, flow_rate):
 
 
 class IrrigationSystem:
-    def __init__(self, node_count, node_spacing=DEFAULT_NODE_SPACING,
+    def __init__(self, node_count, rukoushuitou, node_spacing=DEFAULT_NODE_SPACING,
                  first_segment_length=DEFAULT_FIRST_SEGMENT_LENGTH,
                  submain_length=DEFAULT_SUBMAIN_LENGTH,
                  lateral_layout="single"):
@@ -110,6 +109,7 @@ class IrrigationSystem:
         self.first_segment_length = first_segment_length
         self.submain_length = submain_length
         self.lateral_layout = lateral_layout
+        self.rukoushuitou = rukoushuitou
 
         # 初始化管网结构
         self.main_pipe = self._create_main_pipe()
@@ -248,7 +248,7 @@ class IrrigationSystem:
         cumulative_loss = 0
         for i, segment in enumerate(self.main_pipe):
             if i == 0:
-                segment["pressure"] = DEFAULT_INLET_PRESSURE
+                segment["pressure"] = self.rukoushuitou
             else:
                 previous_pressure = self.main_pipe[i - 1]["pressure"]
                 current_loss = self.main_pipe[i - 1]["head_loss"]
@@ -393,6 +393,7 @@ class IrrigationSystem:
                         "flow_rate": 0.0
                     })
         return drip_lines
+
 
 class PSOOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -609,11 +610,6 @@ class PSOOptimizationTracker:
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
             self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
-            # 如果需要，保存图表
-            if self.auto_save:
-                self.fig_2d.savefig('PSO_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
-                self.fig_3d.savefig('PSO_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
-
             # 刷新图表
             self.fig_2d.canvas.draw()
             self.fig_3d.canvas.draw()
@@ -698,6 +694,7 @@ class PSOOptimizationTracker:
         plt.ion()  # 重新开启交互模式以便能打开多个图表
         plt.show(block=False)
 
+
 # 定义PSO算法所需的粒子类
 class Particle:
     def __init__(self, dimensions, value_ranges):
@@ -752,7 +749,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=50, show_plots=True,
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterations=100, show_plots=True,
                         auto_save=False):
     """多目标PSO优化函数"""
     # 创建跟踪器
@@ -1106,7 +1103,8 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2):
     return multi_objective_pso(irrigation_system, lgz1, lgz2)
 
 
-def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2, output_file="optimization_results_PSO_DAN.txt"):
+def print_detailed_results(irrigation_system, best_particle, lgz1, lgz2,
+                           output_file="optimization_results_PSO_DAN.txt"):
     """
     打印优化后的详细结果
     best_particle: 对于PSO算法，这是一个Particle对象
@@ -1314,6 +1312,7 @@ def main():
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
             node_count=23,
+            rukoushuitou=50
         )
 
         # 设置轮灌参数
@@ -1322,7 +1321,8 @@ def main():
 
         # 执行优化
         start_time = time.time()
-        pareto_front, logbook = multi_objective_pso(irrigation_system, best_lgz1, best_lgz2,show_plots=True, auto_save=True)
+        pareto_front, logbook = multi_objective_pso(irrigation_system, best_lgz1, best_lgz2, show_plots=True,
+                                                    auto_save=True)
         end_time = time.time()
 
         logging.info(f"优化完成，耗时: {end_time - start_time:.2f}秒")

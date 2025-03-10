@@ -17,7 +17,7 @@ DEFAULT_AUXILIARY_LENGTH = 50  # 默认辅助农管长度（米）
 DEFAULT_DRIP_LINE_LENGTH = 66  # 默认滴灌带长度（米）
 DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
-DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
+#DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
 PRESSURE_BASELINE = 20  # 基准压力值
 
@@ -100,7 +100,7 @@ def pressure_loss(diameter, length, flow_rate):
 
 
 class IrrigationSystem:
-    def __init__(self, node_count, node_spacing=DEFAULT_NODE_SPACING,
+    def __init__(self, node_count, rukoushuitou,node_spacing=DEFAULT_NODE_SPACING,
                  first_segment_length=DEFAULT_FIRST_SEGMENT_LENGTH,
                  submain_length=DEFAULT_SUBMAIN_LENGTH,
                  lateral_layout="double"):
@@ -110,6 +110,7 @@ class IrrigationSystem:
         self.first_segment_length = first_segment_length
         self.submain_length = submain_length
         self.lateral_layout = lateral_layout
+        self.rukoushuitou = rukoushuitou
 
         # 初始化管网结构
         self.main_pipe = self._create_main_pipe()
@@ -248,7 +249,7 @@ class IrrigationSystem:
         cumulative_loss = 0
         for i, segment in enumerate(self.main_pipe):
             if i == 0:
-                segment["pressure"] = DEFAULT_INLET_PRESSURE
+                segment["pressure"] = self.rukoushuitou
             else:
                 previous_pressure = self.main_pipe[i - 1]["pressure"]
                 current_loss = self.main_pipe[i - 1]["head_loss"]
@@ -609,11 +610,6 @@ class PSOOptimizationTracker:
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
             self.ax_3d.set_title('丰字PSO算法优化3D进度图', fontsize=14)
 
-            # 如果需要，保存图表
-            if self.auto_save:
-                self.fig_2d.savefig('PSO_SHUANG_2d_curves.png', dpi=300, bbox_inches='tight')
-                self.fig_3d.savefig('PSO_SHUANG_3d_progress.png', dpi=300, bbox_inches='tight')
-
             # 刷新图表
             self.fig_2d.canvas.draw()
             self.fig_3d.canvas.draw()
@@ -749,7 +745,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=50, show_plots=True,
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterations=100, show_plots=True,
                         auto_save=False):
     """多目标PSO优化函数"""
     # 创建跟踪器
@@ -1311,6 +1307,7 @@ def main():
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
             node_count=32,
+            rukoushuitou=50
         )
 
         # 设置轮灌参数

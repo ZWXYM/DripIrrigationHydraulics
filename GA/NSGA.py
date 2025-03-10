@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from deap import base, creator, tools, algorithms
 
-
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
 DEFAULT_NODE_SPACING = 400  # 默认节点间距（米）
@@ -17,7 +16,7 @@ DEFAULT_AUXILIARY_LENGTH = 50  # 默认辅助农管长度（米）
 DEFAULT_DRIP_LINE_LENGTH = 50  # 默认滴灌带长度（米）
 DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
-DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
+# DEFAULT_INLET_PRESSURE = 50  # 默认入口水头压力（米）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
 PRESSURE_BASELINE = 23.8  # 基准压力值
 
@@ -100,7 +99,7 @@ def pressure_loss(diameter, length, flow_rate):
 
 
 class IrrigationSystem:
-    def __init__(self, node_count, node_spacing=DEFAULT_NODE_SPACING,
+    def __init__(self, node_count, rukoushuitou, node_spacing=DEFAULT_NODE_SPACING,
                  first_segment_length=DEFAULT_FIRST_SEGMENT_LENGTH,
                  submain_length=DEFAULT_SUBMAIN_LENGTH,
                  lateral_layout="single"):
@@ -110,6 +109,7 @@ class IrrigationSystem:
         self.first_segment_length = first_segment_length
         self.submain_length = submain_length
         self.lateral_layout = lateral_layout
+        self.rukoushuitou = rukoushuitou
 
         # 初始化管网结构
         self.main_pipe = self._create_main_pipe()
@@ -248,7 +248,7 @@ class IrrigationSystem:
         cumulative_loss = 0
         for i, segment in enumerate(self.main_pipe):
             if i == 0:
-                segment["pressure"] = DEFAULT_INLET_PRESSURE
+                segment["pressure"] = self.rukoushuitou
             else:
                 previous_pressure = self.main_pipe[i - 1]["pressure"]
                 current_loss = self.main_pipe[i - 1]["head_loss"]
@@ -400,6 +400,7 @@ class IrrigationSystem:
         avg_margin = sum(pressure_margins) / len(pressure_margins)
         variance = sum((p - avg_margin) ** 2 for p in pressure_margins) / len(pressure_margins)
         return variance ** 0.5
+
 
 class NSGAOptimizationTracker:
     def __init__(self, show_dynamic_plots=False, auto_save=False):
@@ -1139,7 +1140,8 @@ def main():
     try:
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
-            node_count=12,
+            node_count=23,
+            rukoushuitou=50
         )
 
         # 设置轮灌参数
