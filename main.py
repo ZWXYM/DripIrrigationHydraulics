@@ -52,7 +52,7 @@ def create_directory_structure():
 def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou):
     """修改算法文件中的参数"""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             code = f.read()
 
         # 修改IrrigationSystem初始化部分，直接查找并替换整个初始化行
@@ -93,7 +93,7 @@ def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou)
 
         # 创建临时文件
         temp_file = f"temp_{os.path.basename(file_path)}"
-        with open(temp_file, 'w', encoding='utf-8') as f:
+        with open(temp_file, 'w', encoding='utf-8-sig') as f:
             f.write(code)
 
         return temp_file
@@ -203,7 +203,14 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2, rukoushuitou):
 
 
 def convert_txt_to_csv(txt_file):
-    """将TXT结果文件转换为CSV格式"""
+    """
+    将TXT结果文件转换为CSV格式的最终优化版本
+    特点:
+    - 精确处理节点编号和管径配置表格，保留其原始结构
+    - 正确处理灌溉系统表格的所有列
+    - 为所有轮灌组添加一致的表头
+    - 统一编码处理，防止中文乱码
+    """
     if not os.path.exists(txt_file):
         logging.warning(f"文件不存在，无法转换: {txt_file}")
         return None
@@ -212,75 +219,424 @@ def convert_txt_to_csv(txt_file):
         # 创建CSV文件名
         csv_file = txt_file.replace('.txt', '.csv')
 
-        # 读取TXT文件
-        with open(txt_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # 查找并解析不同部分
-        sections = []
-        current_section = []
-        in_table = False
-        table_header = None
-
-        for line in content.split('\n'):
-            # 检测表格开始（标题行通常有多个连字符）
-            if '---' in line and len(line.strip()) > 10:
-                in_table = True
-                # 上一行可能是表头
-                if current_section and current_section[-1].strip() and '---' not in current_section[-1]:
-                    table_header = current_section[-1]
-                    current_section = current_section[:-1]  # 移除表头(会在后面单独处理)
-                # 保存当前部分
-                if current_section:
-                    sections.append((False, current_section))
-                current_section = []
-                if table_header:
-                    current_section.append(table_header)
-                    table_header = None
+        # 读取TXT文件，尝试多种编码
+        content = None
+        for encoding in ['utf-8', 'gbk', 'gb18030']:
+            try:
+                with open(txt_file, 'r', encoding=encoding) as f:
+                    content = f.read()
+                logging.info(f"使用 {encoding} 编码成功读取文件")
+                break
+            except UnicodeDecodeError:
                 continue
 
-            # 检测表格结束（空行或新段落开始）
-            if in_table and (not line.strip() or '===' in line):
-                in_table = False
-                if current_section:
-                    sections.append((True, current_section))
-                current_section = []
-                continue
+        if content is None:
+            with open(txt_file, 'rb') as f:
+                content = f.read().decode('utf-8', errors='replace')
+            logging.info("使用替换模式解码文件内容")
 
-            # 普通行，添加到当前部分
-            current_section.append(line)
+        # 分割为行
+        lines = content.splitlines()
 
-        # 添加最后一个部分
-        if current_section:
-            sections.append((in_table, current_section))
-
-        # 打开CSV文件进行写入
-        with open(csv_file, 'w', encoding='utf-8', newline='') as csvfile:
+        # 打开CSV文件进行写入，使用UTF-8-SIG编码
+        with open(csv_file, 'w', encoding='utf-8-sig', newline='') as csvfile:
             writer = csv.writer(csvfile)
 
-            # 写入每个部分
-            for is_table, section in sections:
-                if is_table:
-                    # 处理表格部分
-                    for row in section:
-                        # 清理和分割行
-                        cells = [cell.strip() for cell in row.split('  ') if cell.strip()]
-                        # 过滤掉全空行
-                        if cells:
-                            writer.writerow(cells)
-                else:
-                    # 处理非表格部分 - 将它们作为注释写入
-                    for line in section:
-                        if line.strip():
-                            writer.writerow(['# ' + line.strip()])
+            # 记录已找到的表头类型，用于确保为相同类型的表添加一致的表头
+            irrigation_system_headers = None
+            pipe_diameter_headers = None
 
-        logging.info(f"已将 {txt_file} 转换为 {csv_file}")
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+
+                # 检测管径配置表格
+                if "节点编号" in line and "管径" in line:
+                    # 如果是第一次遇到管径配置表格，记录表头
+                    if pipe_diameter_headers is None:
+                        # 根据图片中的表格格式定义标准表头
+                        pipe_diameter_headers = ["节点编号", "第一段管径", "第二段管径"]
+
+                    # 写入表头
+                    writer.writerow(pipe_diameter_headers)
+                    i += 1
+
+                    # 处理单位行（如果存在）
+                    if i < len(lines) and "(mm)" in lines[i]:
+                        i += 1  # 跳过单位行
+
+                    # 处理分隔行（如果存在）
+                    if i < len(lines) and "-----" in lines[i]:
+                        i += 1  # 跳过分隔行
+
+                    # 处理数据行
+                    while i < len(lines):
+                        data_line = lines[i].strip()
+
+                        # 检查是否到达表格结束
+                        if not data_line or "-----" in data_line:
+                            if "-----" in data_line:
+                                i += 1  # 跳过结束分隔线
+                            break
+
+                        # 分析数据行
+                        # 针对格式 "# 1    140    140" 或 "1    140    140"
+                        clean_line = re.sub(r'\s+', ' ', data_line)
+                        parts = clean_line.split(' ')
+
+                        # 处理可能以 # 开头的行
+                        if parts and parts[0] == '#':
+                            parts.pop(0)  # 移除单独的#号
+                        elif parts and parts[0].startswith('#'):
+                            parts[0] = parts[0][1:].strip()  # 移除#号
+
+                        # 确保数据行格式正确
+                        if parts and parts[0].isdigit():
+                            row_data = []
+
+                            # 节点编号
+                            row_data.append(parts[0] if len(parts) > 0 else "")
+
+                            # 第一段管径
+                            row_data.append(parts[1] if len(parts) > 1 else "")
+
+                            # 第二段管径
+                            row_data.append(parts[2] if len(parts) > 2 else "")
+
+                            # 写入解析后的数据行
+                            writer.writerow(row_data)
+                        else:
+                            # 非数据行，作为注释写入
+                            writer.writerow(['# ' + data_line])
+
+                        i += 1
+
+                    continue  # 继续处理下一行
+
+                # 检测灌溉系统表格（编号、后端距起点等）
+                elif "编号" in line and ("后端距起点" in line or "段前启用状态" in line or "水头损失" in line):
+                    # 如果是第一次遇到灌溉系统表格，记录表头
+                    if irrigation_system_headers is None:
+                        # 根据图片和反馈定义标准表头
+                        irrigation_system_headers = [
+                            "编号", "后端距起点", "管径", "段前启用状态", "流量",
+                            "流速", "水头损失", "段前水头压力", "压力富裕"
+                        ]
+
+                    # 写入标准表头
+                    writer.writerow(irrigation_system_headers)
+                    i += 1
+
+                    # 跳过单位行和分隔行
+                    while i < len(lines) and ("(" in lines[i] or "---" in lines[i]):
+                        i += 1
+
+                    # 处理数据行
+                    while i < len(lines):
+                        data_line = lines[i].strip()
+
+                        # 检测表格结束
+                        if not data_line or "这段" in data_line or "注:" in data_line or "压力均方差" in data_line:
+                            if data_line:  # 保留统计信息行
+                                writer.writerow(['# ' + data_line])
+                            i += 1
+                            break
+
+                        # 检查是否是数据行（以数字开头）
+                        if re.match(r'^\d+', data_line):
+                            # 清理行，确保空格一致性
+                            clean_line = re.sub(r'\s+', ' ', data_line)
+                            parts = clean_line.split(' ')
+
+                            # 初始化数据行
+                            row_data = [""] * len(irrigation_system_headers)
+
+                            # 解析数据行
+                            # 编号
+                            if len(parts) > 0:
+                                row_data[0] = parts[0]
+
+                            # 后端距起点
+                            if len(parts) > 1:
+                                row_data[1] = parts[1]
+
+                            # 检查是否有星号
+                            has_asterisk = '*' in parts
+                            asterisk_index = parts.index('*') if has_asterisk else -1
+
+                            # 管径
+                            if len(parts) > 2:
+                                row_data[2] = parts[2]
+
+                            # 段前启用状态
+                            row_data[3] = '*' if has_asterisk else ''
+
+                            # 调整后续列的索引偏移
+                            offset = 1 if has_asterisk and asterisk_index > 2 else 0
+
+                            # 流量
+                            if len(parts) > 3 + offset:
+                                row_data[4] = parts[3 + offset]
+
+                            # 流速
+                            if len(parts) > 4 + offset:
+                                row_data[5] = parts[4 + offset]
+
+                            # 水头损失
+                            if len(parts) > 5 + offset:
+                                row_data[6] = parts[5 + offset]
+
+                            # 段前水头压力
+                            if len(parts) > 6 + offset:
+                                row_data[7] = parts[6 + offset]
+
+                            # 压力富裕
+                            if len(parts) > 7 + offset:
+                                row_data[8] = parts[7 + offset]
+
+                            # 写入数据行
+                            writer.writerow(row_data)
+                        else:
+                            # 检查是否是新的轮灌组标题行
+                            if "轮灌组" in data_line or "灌溉组" in data_line:
+                                # 写入轮灌组标题
+                                writer.writerow(['# ' + data_line])
+
+                                # 为新的轮灌组写入相同的表头
+                                writer.writerow(irrigation_system_headers)
+                            else:
+                                # 其他非数据行，写为注释
+                                writer.writerow(['# ' + data_line])
+
+                        i += 1
+
+                    continue  # 继续处理下一行
+
+                # 检测到分隔线标记可能开始一个新的表格
+                elif "===" in line or "---" in line and len(line) > 10:
+                    # 写入分隔线
+                    writer.writerow(['# ' + line])
+                    i += 1
+
+                    # 检查下一行是否是管径配置表头
+                    if i < len(lines) and "节点编号" in lines[i] and "管径" in lines[i]:
+                        # 写入管径配置表头
+                        if pipe_diameter_headers is None:
+                            pipe_diameter_headers = ["节点编号", "第一段管径", "第二段管径"]
+
+                        # 不要在这里写入表头，让下一次循环处理
+                        continue
+
+                    # 检查下一行是否是灌溉系统表头
+                    elif i < len(lines) and "编号" in lines[i] and "后端距起点" in lines[i]:
+                        # 不要在这里写入表头，让下一次循环处理
+                        continue
+
+                    continue  # 继续处理下一行
+
+                else:
+                    # 非表格行，作为注释写入
+                    if line.strip():
+                        writer.writerow(['# ' + line.strip()])
+                    i += 1
+
+        logging.info(f"已成功将 {txt_file} 转换为 {csv_file}")
         return csv_file
 
     except Exception as e:
         logging.error(f"转换文件 {txt_file} 为CSV时出错: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
         return None
 
+
+def parse_irrigation_table(table_lines):
+    """
+    专门解析灌溉系统优化结果表格
+
+    参数:
+        table_lines: 表格文本行的列表
+
+    返回:
+        headers: 列标题列表
+        rows: 数据行列表
+    """
+    if not table_lines or len(table_lines) < 2:
+        return [], []
+
+    # 查找表头行
+    header_row_idx = None
+    for i, line in enumerate(table_lines):
+        if "编号" in line and ("后端距起点" in line or "管长" in line):
+            header_row_idx = i
+            break
+
+    if header_row_idx is None:
+        return [], []
+
+    # 解析表头
+    header_line = table_lines[header_row_idx]
+
+    # 定义表格中应该存在的列名
+    expected_columns = [
+        "编号", "后端距起点", "管长", "管径", "节点启用状态", "流量",
+        "节点水头压力", "压力富裕"
+    ]
+
+    # 在表头中查找这些列的位置
+    column_positions = []
+    for col in expected_columns:
+        pos = header_line.find(col)
+        if pos >= 0:
+            column_positions.append((pos, col))
+
+    # 如果没有找到足够的列，尝试使用空格分割
+    if len(column_positions) < 3:
+        # 根据多个空格分割
+        headers = [h.strip() for h in re.split(r'\s{2,}', header_line) if h.strip()]
+        rows = []
+        for i in range(header_row_idx + 1, len(table_lines)):
+            row = [cell.strip() for cell in re.split(r'\s{2,}', table_lines[i]) if cell.strip()]
+            if row:
+                rows.append(row)
+        return headers, rows
+
+    # 按位置排序
+    column_positions.sort(key=lambda x: x[0])
+
+    # 提取列名
+    headers = [col for _, col in column_positions]
+
+    # 检查是否缺少某些列
+    found_columns = set(headers)
+    missing_columns = set(expected_columns) - found_columns
+
+    # 特别处理缺少的"流量"列
+    if "流量" in missing_columns and "节点启用状态" in found_columns:
+        status_idx = headers.index("节点启用状态")
+        headers.insert(status_idx + 1, "流量")
+
+    # 特别处理缺少的"压力富裕"列
+    if "压力富裕" in missing_columns and "节点水头压力" in found_columns:
+        pressure_idx = headers.index("节点水头压力")
+        headers.insert(pressure_idx + 1, "压力富裕")
+
+    # 计算列边界
+    col_spans = []
+    for i, (pos, _) in enumerate(column_positions):
+        start = pos
+        if i < len(column_positions) - 1:
+            end = column_positions[i + 1][0]
+        else:
+            end = len(header_line) + 10  # 添加额外空间以确保捕获行尾
+        col_spans.append((start, end))
+
+    # 处理数据行
+    rows = []
+    for i in range(header_row_idx + 1, len(table_lines)):
+        line = table_lines[i]
+        if not line.strip():
+            continue
+
+        # 使用列边界切分行
+        row_data = []
+
+        # 确保行足够长
+        line_padded = line.ljust(max(end for _, end in col_spans))
+
+        for j, (start, end) in enumerate(col_spans):
+            cell = line_padded[start:end].strip()
+
+            # 处理星号（根据图片显示，星号是管径后的标记）
+            if '*' in cell and headers[j] in ["管径", "管长"]:
+                # 保留星号但分离数值
+                numbers = re.findall(r'-?\d+\.?\d*', cell)
+                if numbers:
+                    cell = numbers[0] + ' *'
+
+            row_data.append(cell)
+
+        # 特殊处理"节点启用状态"和"流量"列合并的情况
+        if "流量" in headers and "节点启用状态" in headers:
+            status_idx = headers.index("节点启用状态")
+            flow_idx = headers.index("流量")
+
+            if flow_idx == status_idx + 1 and status_idx < len(row_data):
+                # 检查"节点启用状态"列是否包含两个数字
+                cell = row_data[status_idx]
+                numbers = re.findall(r'-?\d+\.?\d*', cell)
+
+                if len(numbers) >= 2:
+                    # 第一个数字是启用状态
+                    row_data[status_idx] = numbers[0]
+
+                    # 插入流量值
+                    if flow_idx >= len(row_data):
+                        row_data.append(numbers[1])
+                    else:
+                        # 修正流量列
+                        row_data[flow_idx] = numbers[1]
+
+        # 特殊处理"节点水头压力"和"压力富裕"列合并的情况
+        if "压力富裕" in headers and "节点水头压力" in headers:
+            pressure_idx = headers.index("节点水头压力")
+            margin_idx = headers.index("压力富裕")
+
+            if margin_idx == pressure_idx + 1 and pressure_idx < len(row_data):
+                # 检查"节点水头压力"列是否包含两个数字
+                cell = row_data[pressure_idx]
+                numbers = re.findall(r'-?\d+\.?\d*', cell)
+
+                if len(numbers) >= 2:
+                    # 第一个数字是水头压力
+                    row_data[pressure_idx] = numbers[0]
+
+                    # 插入压力富裕值
+                    if margin_idx >= len(row_data):
+                        row_data.append(numbers[1])
+                    else:
+                        # 修正压力富裕列
+                        row_data[margin_idx] = numbers[1]
+
+        # 确保行数据和表头列数一致
+        while len(row_data) < len(headers):
+            row_data.append("")
+
+        # 截断过长的行
+        if len(row_data) > len(headers):
+            row_data = row_data[:len(headers)]
+
+        rows.append(row_data)
+
+    return headers, rows
+
+def read_output(stream, prefix, log_func):
+    """
+    安全地读取进程输出流并记录到日志
+    处理可能的编码错误
+    """
+    try:
+        for line in stream:
+            # 确保line是字符串
+            if isinstance(line, bytes):
+                try:
+                    line = line.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        line = line.decode('gbk')
+                    except UnicodeDecodeError:
+                        line = line.decode('utf-8', errors='replace')
+
+            line = line.strip()
+            if line:
+                try:
+                    log_func(f"[{prefix}] {line}")
+                except UnicodeEncodeError:
+                    # 如果仍然出现编码错误，使用ASCII编码记录
+                    safe_line = line.encode('ascii', 'replace').decode('ascii')
+                    log_func(f"[{prefix}] {safe_line}")
+    except Exception as e:
+        log_func(f"[{prefix}] 读取输出时出错: {str(e)}")
 
 def check_system_resources():
     """检查系统资源"""
@@ -663,7 +1019,7 @@ def main():
 
         for result_file, algo_name in result_files:
             try:
-                with open(result_file, 'r', encoding='utf-8') as f:
+                with open(result_file, 'r', encoding='utf-8-sig') as f:
                     content = f.read()
 
                     # 提取系统总成本
