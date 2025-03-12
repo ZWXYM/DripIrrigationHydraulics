@@ -403,7 +403,7 @@ class IrrigationSystem:
 
 
 class NSGAOptimizationTracker:
-    def __init__(self, show_dynamic_plots=False, auto_save=False):
+    def __init__(self, show_dynamic_plots=False, auto_save=False, enable_smoothing=True):
         self.generations = []
         self.best_costs = []
         self.best_variances = []
@@ -414,6 +414,7 @@ class NSGAOptimizationTracker:
         # 动态图表显示设置
         self.show_dynamic_plots = show_dynamic_plots
         self.auto_save = auto_save  # 新增控制自动保存的选项
+        self.enable_smoothing = enable_smoothing  # 新增控制平滑的选项
         self.fig_2d = None
         self.ax1 = None
         self.ax2 = None
@@ -442,9 +443,9 @@ class NSGAOptimizationTracker:
         self.ax2.set_ylabel('水头均方差', fontsize=12)
         self.ax2.grid(True, linestyle='--', alpha=0.7)
 
-        # 创建空的线条对象
-        self.line1, = self.ax1.plot([], [], 'b-o', linewidth=2)
-        self.line2, = self.ax2.plot([], [], 'r-o', linewidth=2)
+        # 创建空的线条对象 - 移除标记点，只使用线条
+        self.line1, = self.ax1.plot([], [], 'b-', linewidth=2)
+        self.line2, = self.ax2.plot([], [], 'r-', linewidth=2)
 
         # 初始化3D图表
         self.fig_3d = plt.figure(figsize=(12, 10))
@@ -459,6 +460,75 @@ class NSGAOptimizationTracker:
         self.fig_2d.canvas.flush_events()
         self.fig_3d.canvas.draw()
         self.fig_3d.canvas.flush_events()
+
+    # 新增平滑曲线相关方法
+    def _smooth_curve(self, data, window_size=21, poly_order=3):
+        """使用Savitzky-Golay滤波器平滑数据"""
+        import numpy as np
+
+        # 如果数据点不足，返回原始数据
+        if len(data) < window_size:
+            return data
+
+        # 确保窗口大小是奇数
+        if window_size % 2 == 0:
+            window_size += 1
+
+        # 确保窗口大小小于数据长度
+        if window_size >= len(data):
+            window_size = min(len(data) - 2, 15)
+            if window_size % 2 == 0:
+                window_size -= 1
+
+        try:
+            # 尝试导入scipy并使用Savitzky-Golay滤波器
+            from scipy.signal import savgol_filter
+            return savgol_filter(data, window_size, poly_order)
+        except (ImportError, ValueError):
+            # 如果scipy不可用或出错，使用简单的移动平均
+            return self._moving_average(data, window_size=5)
+
+    def _moving_average(self, data, window_size=5):
+        """计算移动平均"""
+        import numpy as np
+
+        if len(data) < window_size:
+            return data
+
+        # 创建均匀权重的窗口
+        weights = np.ones(window_size) / window_size
+        # 使用卷积计算移动平均
+        smoothed = np.convolve(data, weights, mode='same')
+
+        # 处理边缘效应
+        # 前半部分
+        for i in range(window_size // 2):
+            if i < len(smoothed):
+                window = data[:i + window_size // 2 + 1]
+                smoothed[i] = sum(window) / len(window)
+
+        # 后半部分
+        for i in range(len(data) - window_size // 2, len(data)):
+            if i < len(smoothed):
+                window = data[i - window_size // 2:]
+                smoothed[i] = sum(window) / len(window)
+
+        return smoothed
+
+    def _exponential_moving_average(self, data, alpha=0.15):
+        """计算指数移动平均"""
+        import numpy as np
+
+        if len(data) < 2:
+            return data
+
+        ema = np.zeros_like(data)
+        ema[0] = data[0]
+
+        for i in range(1, len(data)):
+            ema[i] = alpha * data[i] + (1 - alpha) * ema[i - 1]
+
+        return ema
 
     # 新方法 - 直接接收帕累托前沿
     def update_with_front(self, generation, population, pareto_front):
@@ -644,9 +714,25 @@ class NSGAOptimizationTracker:
             return
 
         try:
+            # 平滑处理数据
+            cost_data = self.best_costs
+            variance_data = self.best_variances
+
+            if self.enable_smoothing and len(self.generations) > 5:
+                # 应用平滑算法
+                smoothed_cost = self._smooth_curve(cost_data)
+                smoothed_variance = self._smooth_curve(variance_data)
+
+                # 应用二次平滑 - 指数移动平均
+                smoothed_cost = self._exponential_moving_average(smoothed_cost)
+                smoothed_variance = self._exponential_moving_average(smoothed_variance)
+            else:
+                smoothed_cost = cost_data
+                smoothed_variance = variance_data
+
             # 更新2D图表中的数据
-            self.line1.set_data(self.generations, self.best_costs)
-            self.line2.set_data(self.generations, self.best_variances)
+            self.line1.set_data(self.generations, smoothed_cost)
+            self.line2.set_data(self.generations, smoothed_variance)
 
             # 调整坐标轴范围
             self.ax1.relim()
@@ -685,7 +771,7 @@ class NSGAOptimizationTracker:
             plt.pause(0.0001)  # 减少暂停时间
 
         except Exception as e:
-            print(f"图表更新过程中出错: {e}")
+            print(f"图表更新过程中出错: {str(e)}")
 
     def finalize_plots(self):
         """优化结束后最终更新图表"""
@@ -697,9 +783,25 @@ class NSGAOptimizationTracker:
 
         # 更新已有的动态图表
         try:
+            # 平滑处理数据
+            cost_data = self.best_costs
+            variance_data = self.best_variances
+
+            if self.enable_smoothing and len(self.generations) > 5:
+                # 应用平滑算法 - 使用更大的窗口进行最终展示
+                smoothed_cost = self._smooth_curve(cost_data, window_size=25)
+                smoothed_variance = self._smooth_curve(variance_data, window_size=25)
+
+                # 应用二次平滑 - 指数移动平均
+                smoothed_cost = self._exponential_moving_average(smoothed_cost, alpha=0.12)
+                smoothed_variance = self._exponential_moving_average(smoothed_variance, alpha=0.12)
+            else:
+                smoothed_cost = cost_data
+                smoothed_variance = variance_data
+
             # 更新2D图表
-            self.line1.set_data(self.generations, self.best_costs)
-            self.line2.set_data(self.generations, self.best_variances)
+            self.line1.set_data(self.generations, smoothed_cost)
+            self.line2.set_data(self.generations, smoothed_variance)
 
             # 调整坐标轴范围
             self.ax1.relim()
@@ -731,7 +833,7 @@ class NSGAOptimizationTracker:
 
             # 如果需要，保存图表
             if self.auto_save:
-                self.fig_2d.savefig('NSGA_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
+                self.fig_2d.savefig('NSGA_DAN_2d_curves_smoothed.png', dpi=300, bbox_inches='tight')
                 self.fig_3d.savefig('NSGA_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
 
             # 刷新图表
@@ -753,14 +855,30 @@ class NSGAOptimizationTracker:
         # 创建新图表
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-        # 成本曲线
-        ax1.plot(self.generations, self.best_costs, 'b-o', linewidth=2)
+        # 平滑处理数据
+        cost_data = self.best_costs
+        variance_data = self.best_variances
+
+        if self.enable_smoothing and len(self.generations) > 5:
+            # 应用平滑算法 - 最终图表使用更大的窗口
+            smoothed_cost = self._smooth_curve(cost_data, window_size=25)
+            smoothed_variance = self._smooth_curve(variance_data, window_size=25)
+
+            # 应用二次平滑 - 指数移动平均
+            smoothed_cost = self._exponential_moving_average(smoothed_cost, alpha=0.12)
+            smoothed_variance = self._exponential_moving_average(smoothed_variance, alpha=0.12)
+        else:
+            smoothed_cost = cost_data
+            smoothed_variance = variance_data
+
+        # 成本曲线 - 移除标记点，只使用线条
+        ax1.plot(self.generations, smoothed_cost, 'b-', linewidth=2)
         ax1.set_ylabel('系统成本 (元)', fontsize=12)
         ax1.set_title('梳齿状NSGA-II算法优化迭代曲线', fontsize=14)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
-        # 方差曲线
-        ax2.plot(self.generations, self.best_variances, 'r-o', linewidth=2)
+        # 方差曲线 - 移除标记点，只使用线条
+        ax2.plot(self.generations, smoothed_variance, 'r-', linewidth=2)
         ax2.set_xlabel('迭代代数', fontsize=12)
         ax2.set_ylabel('水头均方差', fontsize=12)
         ax2.grid(True, linestyle='--', alpha=0.7)
@@ -769,7 +887,7 @@ class NSGAOptimizationTracker:
 
         # 如果需要，保存图表
         if self.auto_save:
-            plt.savefig('NSGA_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
+            plt.savefig('NSGA_DAN_2d_curves_smoothed.png', dpi=300, bbox_inches='tight')
 
         # 显示图表
         plt.ion()  # 重新开启交互模式以便能打开多个图表
@@ -831,7 +949,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
         del creator.Individual
 
     # 创建跟踪器
-    tracker = NSGAOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save)
+    tracker = NSGAOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save, enable_smoothing=True)
 
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
