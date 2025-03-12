@@ -454,6 +454,7 @@ class NSGAOptimizationTracker:
         self.ax_3d.set_ylabel('水头均方差', fontsize=12)
         self.ax_3d.set_zlabel('迭代代数', fontsize=12)
         self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
+        self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
 
         # 显示图表
         self.fig_2d.canvas.draw()
@@ -607,7 +608,7 @@ class NSGAOptimizationTracker:
             self.all_generations.append(generation)
 
         # 如果启用了动态图表，更新图表
-        if self.show_dynamic_plots and generation % 5 == 0:
+        if self.show_dynamic_plots and generation % 10 == 0:
             try:
                 self._update_plots()
             except Exception as e:
@@ -754,6 +755,7 @@ class NSGAOptimizationTracker:
                 alpha=0.6
             )
 
+            self.ax_3d.view_init(elev=30, azim=-35)
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代代数', fontsize=12)
@@ -826,6 +828,7 @@ class NSGAOptimizationTracker:
             cbar = self.fig_3d.colorbar(self.scatter, ax=self.ax_3d, pad=0.1)
             cbar.set_label('迭代代数', fontsize=12)
 
+            self.ax_3d.view_init(elev=30, azim=-35)
             self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代代数', fontsize=12)
@@ -930,7 +933,7 @@ class NSGAOptimizationTracker:
         ax.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
 
         # 调整视角
-        ax.view_init(elev=30, azim=45)
+        ax.view_init(elev=30, azim=-35)
 
         # 如果需要，保存图表
         if self.auto_save:

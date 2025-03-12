@@ -454,6 +454,7 @@ class PSOOptimizationTracker:
         self.ax_3d.set_ylabel('水头均方差', fontsize=12)
         self.ax_3d.set_zlabel('迭代次数', fontsize=12)
         self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
+        self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
 
         # 显示图表
         self.fig_2d.canvas.draw()
@@ -603,7 +604,7 @@ class PSOOptimizationTracker:
             self.all_iterations.append(iteration)
 
         # 如果启用了动态图表，更新图表
-        if self.show_dynamic_plots and iteration % 5 == 0:
+        if self.show_dynamic_plots and iteration % 10 == 0:
             try:
                 self._update_plots()
             except Exception as e:
@@ -773,6 +774,7 @@ class PSOOptimizationTracker:
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
             self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
+            self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
 
             # 刷新图表 - 使用更可靠的方法
             self.fig_2d.canvas.draw_idle()
@@ -845,6 +847,7 @@ class PSOOptimizationTracker:
             self.ax_3d.set_ylabel('水头均方差', fontsize=12)
             self.ax_3d.set_zlabel('迭代次数', fontsize=12)
             self.ax_3d.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
+            self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
 
             # 如果需要，保存图表
             if self.auto_save:
@@ -945,7 +948,7 @@ class PSOOptimizationTracker:
         ax.set_title('梳齿状PSO算法优化3D进度图', fontsize=14)
 
         # 调整视角
-        ax.view_init(elev=30, azim=45)
+        ax.view_init(elev=30, azim=-35)
 
         # 如果需要，保存图表
         if self.auto_save:
