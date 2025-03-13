@@ -604,7 +604,7 @@ class PSOOptimizationTracker:
             self.all_iterations.append(iteration)
 
         # 如果启用了动态图表，更新图表
-        if self.show_dynamic_plots and iteration % 10 == 0:
+        if self.show_dynamic_plots and iteration % 20 == 0:
             try:
                 self._update_plots()
             except Exception as e:
@@ -1013,7 +1013,7 @@ class Particle:
         self.position = new_position
 
 
-def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=180, show_plots=True,
+def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=50, max_iterations=50, show_plots=True,
                         auto_save=False):
     """多目标PSO优化函数"""
     # 创建跟踪器

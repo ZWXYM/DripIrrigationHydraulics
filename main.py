@@ -25,6 +25,43 @@ logging.basicConfig(
 )
 
 
+# 在主函数开始处设置matplotlib字体
+def setup_matplotlib_fonts():
+    """设置matplotlib中文字体以避免警告"""
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    import os
+
+    # 常见的中文字体
+    chinese_fonts = [
+        'SimHei', 'Microsoft YaHei', 'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+        'STSong', 'STZhongsong', 'STFangsong', 'STKaiti', 'STXihei', 'STXingkai'
+    ]
+
+    # 查找系统中可用的中文字体
+    available_fonts = []
+    font_paths = fm.findSystemFonts()
+
+    for font_path in font_paths:
+        try:
+            font = fm.FontProperties(fname=font_path)
+            font_name = font.get_name()
+            if any(chinese in font_name for chinese in chinese_fonts):
+                available_fonts.append(font_name)
+        except:
+            pass
+
+    if available_fonts:
+        # 有可用的中文字体
+        plt.rcParams['font.sans-serif'] = available_fonts + ['Arial Unicode MS', 'sans-serif']
+    else:
+        # 没有找到中文字体，使用默认设置并警告
+        plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'sans-serif']
+        logging.warning("未找到合适的中文字体，图表中文可能显示不正常")
+
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
+
 def create_directory_structure():
     """确保目录结构存在"""
     # 创建PSO和GA目录（如果不存在）
@@ -1725,6 +1762,9 @@ def execute_optimization_task(task, auto_mode=False):
 
 def main():
     """主函数"""
+    # 在主函数开始处调用此函数
+    setup_matplotlib_fonts()
+
     # 打印程序标题
     print("\n" + "=" * 60)
     print("   灌溉系统优化算法管理器")

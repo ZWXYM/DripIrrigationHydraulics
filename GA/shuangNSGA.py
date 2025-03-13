@@ -608,7 +608,7 @@ class NSGAOptimizationTracker:
             self.all_generations.append(generation)
 
         # 如果启用了动态图表，更新图表
-        if self.show_dynamic_plots and generation % 10 == 0:
+        if self.show_dynamic_plots and generation % 20 == 0:
             try:
                 self._update_plots()
             except Exception as e:
@@ -1117,7 +1117,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=200)
+    population = toolbox.population(n=100)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -1140,7 +1140,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     tracker.update_with_front(0, population, current_front)
 
     # 演化过程
-    for gen in range(1, 170):
+    for gen in range(1, 50):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
