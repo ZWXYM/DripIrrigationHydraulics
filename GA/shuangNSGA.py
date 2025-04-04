@@ -54,6 +54,7 @@ PIPE_SPECS = {
 }
 
 
+
 def configure_fonts():
     """配置全局图表字体设置"""
     # 检测操作系统类型
