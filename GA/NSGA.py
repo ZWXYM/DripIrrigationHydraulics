@@ -1298,7 +1298,7 @@ def visualize_pareto_front(pareto_front):
         plt.figure(figsize=(10, 6), dpi=100)
         plt.scatter(costs, variances, c='blue', marker='o', s=50, alpha=0.6, label='Pareto解')
 
-        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
+        plt.title('多目标梳齿NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
         plt.xlabel('系统成本', fontsize=10)
         plt.ylabel('压力方差', fontsize=10)
         plt.grid(True, linestyle='--', alpha=0.7)
