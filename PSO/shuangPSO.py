@@ -8,6 +8,7 @@ from deap import tools
 from matplotlib import rcParams
 import platform
 
+
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
 DEFAULT_NODE_SPACING = 300  # 默认节点间距（米）
