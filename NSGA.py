@@ -5,6 +5,10 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from deap import base, creator, tools, algorithms
+import matplotlib as mpl
+import matplotlib.font_manager as fm
+from matplotlib import rcParams
+import platform
 
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
@@ -51,6 +55,57 @@ PIPE_SPECS = {
         "prices": [0.42]
     }
 }
+
+
+def configure_fonts():
+    """配置全局图表字体设置"""
+
+
+    # 检测操作系统类型
+    system = platform.system()
+
+    # 配置中文字体
+    if system == 'Windows':
+        chinese_font = 'SimSun'  # Windows系统宋体
+    elif system == 'Darwin':
+        chinese_font = 'Songti SC'  # macOS系统宋体
+    else:
+        chinese_font = 'SimSun'  # Linux系统尝试使用宋体
+
+    # 配置英文字体
+    english_font = 'Times New Roman'
+
+    # 设置字体
+    font_list = [chinese_font, english_font, 'DejaVu Sans']
+
+    # 设置字体大小
+    chinese_size = 12
+    english_size = 10
+
+    # 配置matplotlib字体
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = font_list
+    plt.rcParams['axes.unicode_minus'] = False  # 正确显示负号
+
+    # 设置不同元素的字体
+    rcParams['font.size'] = english_size  # 默认英文字体大小
+    rcParams['axes.titlesize'] = chinese_size  # 标题字体大小
+    rcParams['axes.labelsize'] = english_size  # 轴标签字体大小
+    rcParams['xtick.labelsize'] = english_size  # x轴刻度标签字体大小
+    rcParams['ytick.labelsize'] = english_size  # y轴刻度标签字体大小
+    rcParams['legend.fontsize'] = english_size  # 图例字体大小
+
+    # 设置DPI和图表大小
+    rcParams['figure.dpi'] = 100
+    rcParams['savefig.dpi'] = 300
+
+    # 返回字体配置，以便在特定函数中使用
+    return {
+        'chinese_font': chinese_font,
+        'english_font': english_font,
+        'chinese_size': chinese_size,
+        'english_size': english_size
+    }
 
 
 # 水力学计算函数
@@ -411,6 +466,9 @@ class NSGAOptimizationTracker:
         self.all_variances = []
         self.all_generations = []
 
+        # 字体配置
+        self.font_config = configure_fonts()
+
         # 动态图表显示设置
         self.show_dynamic_plots = show_dynamic_plots
         self.auto_save = auto_save  # 新增控制自动保存的选项
@@ -433,15 +491,30 @@ class NSGAOptimizationTracker:
         # 确保交互模式开启
         plt.ion()
 
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
+
         # 初始化2D图表
         self.fig_2d, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
-        self.ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        self.ax1.set_title('梳齿状NSGA-II算法优化迭代曲线', fontsize=14)
+        self.ax1.set_ylabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax1.set_title('梳齿状NSGA-II算法优化迭代曲线', fontproperties=chinese_font, fontsize=chinese_size + 2)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
-        self.ax2.set_xlabel('迭代代数', fontsize=12)
-        self.ax2.set_ylabel('水头均方差', fontsize=12)
+        self.ax2.set_xlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax2.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
         self.ax2.grid(True, linestyle='--', alpha=0.7)
+
+        # 设置tick标签字体
+        for label in self.ax1.get_xticklabels() + self.ax1.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
+
+        for label in self.ax2.get_xticklabels() + self.ax2.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 创建空的线条对象 - 移除标记点，只使用线条
         self.line1, = self.ax1.plot([], [], 'b-', linewidth=2)
@@ -450,11 +523,16 @@ class NSGAOptimizationTracker:
         # 初始化3D图表
         self.fig_3d = plt.figure(figsize=(12, 10))
         self.ax_3d = self.fig_3d.add_subplot(111, projection='3d')
-        self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
-        self.ax_3d.set_ylabel('水头均方差', fontsize=12)
-        self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-        self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
+        self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
         self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
+
+        # 设置3D图的tick标签字体
+        for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 显示图表
         self.fig_2d.canvas.draw()
@@ -715,6 +793,12 @@ class NSGAOptimizationTracker:
             print("没有数据可供绘图")
             return
 
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
+
         # 计算灌溉面积
         irrigation_area = (irrigation_system.node_count + 1) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH
         change_area = irrigation_area / (2000 / 3)
@@ -746,15 +830,25 @@ class NSGAOptimizationTracker:
 
         # 成本曲线 - 移除标记点，只使用线条
         ax1.plot(self.generations, smoothed_cost, 'g-', linewidth=2)
-        ax1.set_ylabel('单位面积成本 (元/亩)', fontsize=12)
-        ax1.set_title('梳齿状NSGA-II算法优化迭代曲线 (单位面积成本)', fontsize=14)
+        ax1.set_ylabel('单位面积成本 (元/亩)', fontproperties=chinese_font, fontsize=chinese_size)
+        ax1.set_title('梳齿状NSGA-II算法优化迭代曲线 (单位面积成本)', fontproperties=chinese_font,
+                      fontsize=chinese_size + 2)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
         # 方差曲线 - 移除标记点，只使用线条
         ax2.plot(self.generations, smoothed_variance, 'r-', linewidth=2)
-        ax2.set_xlabel('迭代代数', fontsize=12)
-        ax2.set_ylabel('水头均方差', fontsize=12)
+        ax2.set_xlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        ax2.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
         ax2.grid(True, linestyle='--', alpha=0.7)
+
+        # 设置tick标签字体
+        for label in ax1.get_xticklabels() + ax1.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
+
+        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         plt.tight_layout()
 
@@ -771,6 +865,12 @@ class NSGAOptimizationTracker:
         if not self.all_generations:
             print("没有数据可供绘图")
             return
+
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
 
         # 计算灌溉面积
         irrigation_area = (irrigation_system.node_count + 1) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH
@@ -799,15 +899,26 @@ class NSGAOptimizationTracker:
 
         # 添加颜色条
         cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
-        cbar.set_label('迭代代数', fontsize=12)
+        cbar.set_label('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+
+        # 设置颜色条刻度标签字体
+        for label in cbar.ax.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 设置轴标签
-        ax.set_xlabel('单位面积成本 (元/亩)', fontsize=12)
-        ax.set_ylabel('水头均方差', fontsize=12)
-        ax.set_zlabel('迭代代数', fontsize=12)
+        ax.set_xlabel('单位面积成本 (元/亩)', fontproperties=chinese_font, fontsize=chinese_size)
+        ax.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
+        ax.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
 
         # 设置图表标题
-        ax.set_title('梳齿状NSGA-II算法优化3D进度图 (单位面积成本)', fontsize=14)
+        ax.set_title('梳齿状NSGA-II算法优化3D进度图 (单位面积成本)', fontproperties=chinese_font,
+                     fontsize=chinese_size + 2)
+
+        # 设置3D图的tick标签字体
+        for label in ax.get_xticklabels() + ax.get_yticklabels() + ax.get_zticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 调整视角
         ax.view_init(elev=30, azim=-35)
@@ -824,6 +935,12 @@ class NSGAOptimizationTracker:
         """更新动态图表"""
         if not self.generations:
             return
+
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
 
         try:
             # 平滑处理数据
@@ -852,7 +969,8 @@ class NSGAOptimizationTracker:
             self.ax2.relim()
             self.ax2.autoscale_view()
             # 更新标题，反映这是帕累托解的平均值
-            self.ax1.set_title('梳齿状NSGA-II算法优化最优个体迭代曲线', fontsize=14)
+            self.ax1.set_title('梳齿状NSGA-II算法优化最优个体迭代曲线', fontproperties=chinese_font,
+                               fontsize=chinese_size + 2)
 
             # 更新3D图表
             self.ax_3d.clear()
@@ -867,10 +985,16 @@ class NSGAOptimizationTracker:
             )
 
             self.ax_3d.view_init(elev=30, azim=-35)
-            self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
-            self.ax_3d.set_ylabel('水头均方差', fontsize=12)
-            self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font,
+                                 fontsize=chinese_size + 2)
+
+            # 设置3D图的tick标签字体
+            for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():
+                label.set_fontname(english_font)
+                label.set_fontsize(english_size)
 
             # 刷新图表 - 使用更可靠的方法
             self.fig_2d.canvas.draw_idle()
@@ -893,6 +1017,12 @@ class NSGAOptimizationTracker:
             self.plot_2d_curves()
             self.plot_3d_progress()
             return
+
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
 
         # 更新已有的动态图表
         try:
@@ -937,17 +1067,28 @@ class NSGAOptimizationTracker:
 
             # 添加颜色条
             cbar = self.fig_3d.colorbar(self.scatter, ax=self.ax_3d, pad=0.1)
-            cbar.set_label('迭代代数', fontsize=12)
+            cbar.set_label('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+
+            # 设置颜色条刻度标签字体
+            for label in cbar.ax.get_yticklabels():
+                label.set_fontname(english_font)
+                label.set_fontsize(english_size)
 
             self.ax_3d.view_init(elev=30, azim=-35)
-            self.ax_3d.set_xlabel('系统成本 (元)', fontsize=12)
-            self.ax_3d.set_ylabel('水头均方差', fontsize=12)
-            self.ax_3d.set_zlabel('迭代代数', fontsize=12)
-            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
+            self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font,
+                                 fontsize=chinese_size + 2)
+
+            # 设置3D图的tick标签字体
+            for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():
+                label.set_fontname(english_font)
+                label.set_fontsize(english_size)
 
             # 如果需要，保存图表
             if self.auto_save:
-                self.fig_2d.savefig('NSGA_DAN_2d_curves_smoothed.png', dpi=300, bbox_inches='tight')
+                self.fig_2d.savefig('NSGA_DAN_2d_curves.png', dpi=300, bbox_inches='tight')
                 self.fig_3d.savefig('NSGA_DAN_3d_progress.png', dpi=300, bbox_inches='tight')
 
             # 刷新图表
@@ -962,6 +1103,12 @@ class NSGAOptimizationTracker:
         if not self.generations:
             print("没有数据可供绘图")
             return
+
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
 
         # 确保在非交互模式下创建新图表
         plt.ioff()
@@ -987,15 +1134,24 @@ class NSGAOptimizationTracker:
 
         # 成本曲线 - 移除标记点，只使用线条
         ax1.plot(self.generations, smoothed_cost, 'b-', linewidth=2)
-        ax1.set_ylabel('系统成本 (元)', fontsize=12)
-        ax1.set_title('梳齿状NSGA-II算法优化迭代曲线', fontsize=14)
+        ax1.set_ylabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+        ax1.set_title('梳齿状NSGA-II算法优化迭代曲线', fontproperties=chinese_font, fontsize=chinese_size + 2)
         ax1.grid(True, linestyle='--', alpha=0.7)
 
         # 方差曲线 - 移除标记点，只使用线条
         ax2.plot(self.generations, smoothed_variance, 'r-', linewidth=2)
-        ax2.set_xlabel('迭代代数', fontsize=12)
-        ax2.set_ylabel('水头均方差', fontsize=12)
+        ax2.set_xlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        ax2.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
         ax2.grid(True, linestyle='--', alpha=0.7)
+
+        # 设置tick标签字体
+        for label in ax1.get_xticklabels() + ax1.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
+
+        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         plt.tight_layout()
 
@@ -1012,6 +1168,12 @@ class NSGAOptimizationTracker:
         if not self.all_generations:
             print("没有数据可供绘图")
             return
+
+        # 获取字体配置
+        chinese_font = self.font_config['chinese_font']
+        english_font = self.font_config['english_font']
+        chinese_size = self.font_config['chinese_size']
+        english_size = self.font_config['english_size']
 
         # 确保在非交互模式下创建新图表
         plt.ioff()
@@ -1033,15 +1195,25 @@ class NSGAOptimizationTracker:
 
         # 添加颜色条
         cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
-        cbar.set_label('迭代代数', fontsize=12)
+        cbar.set_label('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+
+        # 设置颜色条刻度标签字体
+        for label in cbar.ax.get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 设置轴标签
-        ax.set_xlabel('系统成本 (元)', fontsize=12)
-        ax.set_ylabel('水头均方差', fontsize=12)
-        ax.set_zlabel('迭代代数', fontsize=12)
+        ax.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
+        ax.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
+        ax.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
 
         # 设置图表标题
-        ax.set_title('梳齿状NSGA-II算法优化3D进度图', fontsize=14)
+        ax.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
+
+        # 设置3D图的tick标签字体
+        for label in ax.get_xticklabels() + ax.get_yticklabels() + ax.get_zticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
 
         # 调整视角
         ax.view_init(elev=30, azim=-35)
@@ -1397,6 +1569,13 @@ def visualize_pareto_front(pareto_front):
             print("没有可视化的解集")
             return
 
+        # 获取字体配置
+        font_config = configure_fonts()
+        chinese_font = font_config['chinese_font']
+        english_font = font_config['english_font']
+        chinese_size = font_config['chinese_size']
+        english_size = font_config['english_size']
+
         costs = []
         variances = []
         for ind in pareto_front:
@@ -1411,12 +1590,23 @@ def visualize_pareto_front(pareto_front):
         plt.figure(figsize=(10, 6), dpi=100)
         plt.scatter(costs, variances, c='blue', marker='o', s=50, alpha=0.6, label='Pareto解')
 
-        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿', fontsize=12, pad=15)
-        plt.xlabel('系统成本', fontsize=10)
-        plt.ylabel('压力方差', fontsize=10)
+        plt.title('多目标梳齿状NSGAⅡ管网优化Pareto前沿', fontproperties=chinese_font, fontsize=chinese_size + 2, pad=15)
+        plt.xlabel('系统成本', fontproperties=chinese_font, fontsize=chinese_size)
+        plt.ylabel('压力方差', fontproperties=chinese_font, fontsize=chinese_size)
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.ticklabel_format(style='sci', scilimits=(-2, 3), axis='both')
-        plt.legend(loc='upper right')
+
+        # 设置图例字体
+        legend = plt.legend(loc='upper right')
+        for text in legend.get_texts():
+            text.set_fontproperties(chinese_font)
+            text.set_fontsize(chinese_size)
+
+        # 设置tick标签字体
+        for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
+
         plt.tight_layout()
         plt.savefig('NSGA_DAN_pareto_front.png', dpi=300, bbox_inches='tight')
     except Exception as e:
@@ -1430,6 +1620,13 @@ def visualize_pareto_front_per_area(pareto_front, irrigation_system):
         if not pareto_front:
             print("没有可视化的解集")
             return
+
+        # 获取字体配置
+        font_config = configure_fonts()
+        chinese_font = font_config['chinese_font']
+        english_font = font_config['english_font']
+        chinese_size = font_config['chinese_size']
+        english_size = font_config['english_size']
 
         # 计算灌溉面积
         irrigation_area = (irrigation_system.node_count + 1) * irrigation_system.node_spacing * DEFAULT_SUBMAIN_LENGTH
@@ -1453,11 +1650,23 @@ def visualize_pareto_front_per_area(pareto_front, irrigation_system):
         plt.figure(figsize=(10, 6), dpi=100)
         plt.scatter(costs_per_area, variances, c='green', marker='o', s=50, alpha=0.6, label='Pareto解')
 
-        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿 (单位面积成本)', fontsize=12, pad=15)
-        plt.xlabel('单位面积成本 (元/亩)', fontsize=10)
-        plt.ylabel('压力方差', fontsize=10)
+        plt.title('多目标丰字NSGAⅡ管网优化Pareto前沿 (单位面积成本)', fontproperties=chinese_font,
+                  fontsize=chinese_size + 2, pad=15)
+        plt.xlabel('单位面积成本 (元/亩)', fontproperties=chinese_font, fontsize=chinese_size)
+        plt.ylabel('压力方差', fontproperties=chinese_font, fontsize=chinese_size)
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(loc='upper right')
+
+        # 设置图例字体
+        legend = plt.legend(loc='upper right')
+        for text in legend.get_texts():
+            text.set_fontproperties(chinese_font)
+            text.set_fontsize(chinese_size)
+
+        # 设置tick标签字体
+        for label in plt.gca().get_xticklabels() + plt.gca().get_yticklabels():
+            label.set_fontname(english_font)
+            label.set_fontsize(english_size)
+
         plt.tight_layout()
 
         # 保存图像
@@ -1586,6 +1795,8 @@ def select_best_solution_by_marginal_improvement(solutions, max_variance_thresho
 def main():
     """主函数"""
     try:
+        # 初始化字体配置
+        configure_fonts()
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
             node_count=23,
