@@ -30,7 +30,6 @@ def setup_matplotlib_fonts():
     """设置matplotlib中文字体以避免警告"""
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
-    import os
 
     # 常见的中文字体
     chinese_fonts = [
@@ -1002,7 +1001,7 @@ def read_task_queue(queue_file="任务队列.txt"):
     return tasks
 
 
-def generate_comparison_charts(result_dirs):
+def generate_comparison_charts(result_dirs, task=None):
     """生成PSO和NSGA结果的对比图表 - 改进版：同一划分方式下两种算法的对比"""
     # 检查是否是临时模式
     is_temp_mode = result_dirs["shuchi"] == result_dirs["fengzi"] and "临时" in result_dirs["shuchi"]
@@ -1030,6 +1029,31 @@ def generate_comparison_charts(result_dirs):
     if not pso_data and not nsga_data:
         logging.warning("未找到跟踪器数据文件，无法生成对比图")
         return
+
+    # 获取布局参数信息，用于面积计算
+    if task is None:
+        # 使用默认值
+        shuchi_node_count = 23
+        fengzi_node_count = 32
+        NODE_SPACING = 400
+        SUBMAIN_LENGTH = 800
+        FENGZI_NODE_SPACING = 300
+        FENGZI_SUBMAIN_LENGTH = 400
+    else:
+        # 使用任务中的值
+        shuchi_node_count = task.get('nodes_shuzi', 23)
+        fengzi_node_count = task.get('nodes_fengzi', 32)
+        NODE_SPACING = 400  # 梳齿布局默认节点间距
+        SUBMAIN_LENGTH = 800  # 梳齿布局默认斗管长度
+        FENGZI_NODE_SPACING = 300  # 丰字布局默认节点间距
+        FENGZI_SUBMAIN_LENGTH = 400  # 丰字布局默认斗管长度
+
+    # 计算灌溉面积
+    shuchi_area = (shuchi_node_count + 1) * NODE_SPACING * SUBMAIN_LENGTH
+    shuchi_change_area = shuchi_area / (2000 / 3)
+
+    fengzi_area = (fengzi_node_count) * FENGZI_NODE_SPACING * FENGZI_SUBMAIN_LENGTH * 2
+    fengzi_change_area = fengzi_area / (2000 / 3)
 
     # 创建对比图
     try:
@@ -1166,7 +1190,51 @@ def generate_comparison_charts(result_dirs):
                 fig.savefig(save_path, dpi=300, bbox_inches='tight')
                 logging.info(f"已保存算法性能对比图到 {save_path}")
 
-        # 4. 创建帕累托前沿对比图（在同一图中对比两种算法）
+        # 4. 创建基于每亩成本的对比图
+        plt.figure(figsize=(12, 8))
+
+        if pso_data:
+            pso_iterations = pso_data.get("iterations", [])
+            pso_costs = pso_data.get("best_costs", [])
+            if pso_iterations and pso_costs and len(pso_iterations) == len(pso_costs):
+                # 转换为每亩成本
+                pso_costs_per_area = [cost / shuchi_change_area for cost in pso_costs]
+                # 应用平滑处理
+                smoothed_pso_costs = smooth_curve(pso_costs_per_area, window_size=25, poly_order=3)
+                plt.plot(pso_iterations, smoothed_pso_costs, 'b-', linewidth=2, label='PSO算法')
+
+        if nsga_data:
+            nsga_iterations = nsga_data.get("generations", [])
+            nsga_costs = nsga_data.get("best_costs", [])
+            if nsga_iterations and nsga_costs and len(nsga_iterations) == len(nsga_costs):
+                # 转换为每亩成本
+                nsga_costs_per_area = [cost / fengzi_change_area for cost in nsga_costs]
+                # 应用平滑处理
+                smoothed_nsga_costs = smooth_curve(nsga_costs_per_area, window_size=25, poly_order=3)
+                plt.plot(nsga_iterations, smoothed_nsga_costs, 'r-', linewidth=2, label='NSGA-II算法')
+
+        plt.title('优化算法单位面积成本对比图', fontsize=14)
+        plt.xlabel('迭代次数', fontsize=12)
+        plt.ylabel('单位面积成本 (元/亩)', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=12)
+        plt.tight_layout()
+
+        # 保存图表
+        cost_per_area_comparison_file = "单位面积成本对比图.png"
+        if is_temp_mode:
+            # 临时模式下只保存到临时文件夹
+            save_path = os.path.join(result_dirs["shuchi"], cost_per_area_comparison_file)
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            logging.info(f"已保存单位面积成本对比图到 {save_path}")
+        else:
+            # 正常模式下保存到两个文件夹
+            for layout_type, dir_path in result_dirs.items():
+                save_path = os.path.join(dir_path, cost_per_area_comparison_file)
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                logging.info(f"已保存单位面积成本对比图到 {save_path}")
+
+        # 5. 创建帕累托前沿对比图（在同一图中对比两种算法）
         plt.figure(figsize=(12, 8))
 
         # 从结果文件中提取帕累托前沿数据
@@ -1240,6 +1308,41 @@ def generate_comparison_charts(result_dirs):
                 save_path = os.path.join(dir_path, pareto_comparison_file)
                 plt.savefig(save_path, dpi=300, bbox_inches='tight')
                 logging.info(f"已保存帕累托前沿对比图到 {save_path}")
+
+        # 6. 创建基于每亩成本的帕累托前沿对比图
+        plt.figure(figsize=(12, 8))
+
+        # 绘制基于每亩成本的PSO和NSGA的帕累托前沿点
+        if pso_pareto_costs and pso_pareto_variances:
+            pso_pareto_costs_per_area = [cost / shuchi_change_area for cost in pso_pareto_costs]
+            plt.scatter(pso_pareto_costs_per_area, pso_pareto_variances, c='blue', marker='o', s=100,
+                        label='PSO算法Pareto解 (单位面积成本)', alpha=0.8)
+
+        if nsga_pareto_costs and nsga_pareto_variances:
+            nsga_pareto_costs_per_area = [cost / fengzi_change_area for cost in nsga_pareto_costs]
+            plt.scatter(nsga_pareto_costs_per_area, nsga_pareto_variances, c='red', marker='s', s=100,
+                        label='NSGA-II算法Pareto解 (单位面积成本)', alpha=0.8)
+
+        plt.title('优化算法单位面积成本帕累托前沿对比', fontsize=14)
+        plt.xlabel('单位面积成本 (元/亩)', fontsize=12)
+        plt.ylabel('水头均方差', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=12)
+        plt.tight_layout()
+
+        # 保存图表
+        pareto_per_area_file = "单位面积成本帕累托前沿对比图.png"
+        if is_temp_mode:
+            # 临时模式下只保存到临时文件夹
+            save_path = os.path.join(result_dirs["shuchi"], pareto_per_area_file)
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            logging.info(f"已保存单位面积成本帕累托前沿对比图到 {save_path}")
+        else:
+            # 正常模式下保存到两个文件夹
+            for layout_type, dir_path in result_dirs.items():
+                save_path = os.path.join(dir_path, pareto_per_area_file)
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                logging.info(f"已保存单位面积成本帕累托前沿对比图到 {save_path}")
 
         # 关闭所有图形
         plt.close('all')
@@ -1753,11 +1856,10 @@ def execute_optimization_task(task, auto_mode=False):
     save_comparison_results(comparison_info, result_dirs)
 
     # 生成算法对比图表
-    generate_comparison_charts(result_dirs)
+    generate_comparison_charts(result_dirs, task)
 
     # 输出执行时间信息
     print(f"\n支管 {task['zhiguan']} 优化任务执行完成，耗时: {total_time:.1f}秒 ({total_time / 60:.1f}分钟)")
-
 
 
 def main():
