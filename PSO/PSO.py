@@ -4,9 +4,7 @@ import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from deap import base, creator, tools, algorithms
-import matplotlib as mpl
-import matplotlib.font_manager as fm
+from deap import tools
 from matplotlib import rcParams
 import platform
 
