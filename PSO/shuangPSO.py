@@ -342,7 +342,8 @@ class IrrigationSystem:
         for submain in self.submains:
             if submain["diameter_first_half"] > 0 and submain["diameter_second_half"] > 0:
                 cost += (submain["length"] / 2) * price_lookup["submain"][submain["diameter_first_half"]] * 2
-                cost += ((submain["length"] / 2) - DEFAULT_DRIP_LINE_LENGTH) * price_lookup["submain"][submain["diameter_second_half"]] * 2
+                cost += ((submain["length"] / 2) - DEFAULT_DRIP_LINE_LENGTH) * price_lookup["submain"][
+                    submain["diameter_second_half"]] * 2
 
         # 计算农管成本
         lateral_configs = {}
@@ -1920,9 +1921,57 @@ def main(node_count, frist_pressure, frist_diameter, LGZ1, LGZ2, Size, Max_itera
         raise
 
 
+def main_batch(node_count, frist_pressure, frist_diameter, LGZ1, LGZ2, Size, Max_iterations, SHOW, SAVE):
+    """主函数"""
+    try:
+        # 初始化字体配置
+        configure_fonts()
+        # 创建灌溉系统
+        irrigation_system = IrrigationSystem(
+            node_count=node_count,
+            frist_pressure=frist_pressure,
+            frist_diameter=frist_diameter
+        )
+
+        # 设置轮灌参数
+        best_lgz1, best_lgz2 = LGZ1, LGZ2
+        logging.info("开始进行多目标PSO优化...")
+
+        # 执行优化
+        start_time = time.time()
+        pareto_front, logbook = multi_objective_pso(irrigation_system, best_lgz1, best_lgz2, Size, Max_iterations, SHOW,
+                                                    SAVE)
+        end_time = time.time()
+
+        logging.info(f"优化完成，耗时: {end_time - start_time:.2f}秒")
+
+        # 输出结果
+        if pareto_front:
+            valid_solutions = [particle for particle in pareto_front if np.all(np.isfinite(particle.best_fitness))]
+            if valid_solutions:
+                # 选择最优解
+                best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
+                # 使用相同的最优解进行详细结果输出
+                print_detailed_results(irrigation_system, best_solution)
+                # 可视化Pareto前沿，并标记出相同的最优解
+                visualize_pareto_front(pareto_front)
+
+                logging.info("结果已保存并可视化完成")
+            else:
+                logging.error("未找到有效的解决方案")
+        else:
+            logging.error("多目标优化未能产生有效的Pareto前沿")
+        plt.close('all')
+        return True, "优化成功完成"
+    except Exception as e:
+        logging.error(f"程序执行出错: {str(e)}")
+        raise
+
+
 if __name__ == "__main__":
     # 设置随机种子以确保结果可重复
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
     main(32, 49.62, 500, 11, 2, 100, 50, True, True)
+    # main_batch(32, 49.62, 500, 11, 2, 100, 50, False, True)
