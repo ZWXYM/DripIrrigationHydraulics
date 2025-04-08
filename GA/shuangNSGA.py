@@ -20,6 +20,7 @@ DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
 PRESSURE_BASELINE = 20  # 基准压力值
+MAX_VARIANCE = 5.0  # 水头均方差上限
 
 # 日志和图表配置
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -149,7 +150,7 @@ def pressure_loss(diameter, length, flow_rate):
 
 
 class IrrigationSystem:
-    def __init__(self, node_count, rukoushuitou, node_spacing=DEFAULT_NODE_SPACING,
+    def __init__(self, node_count, frist_pressure, frist_diameter, node_spacing=DEFAULT_NODE_SPACING,
                  first_segment_length=DEFAULT_FIRST_SEGMENT_LENGTH,
                  submain_length=DEFAULT_SUBMAIN_LENGTH,
                  lateral_layout="double"):
@@ -159,7 +160,8 @@ class IrrigationSystem:
         self.first_segment_length = first_segment_length
         self.submain_length = submain_length
         self.lateral_layout = lateral_layout
-        self.rukoushuitou = rukoushuitou
+        self.frist_pressure = frist_pressure
+        self.frist_diameter = frist_diameter
 
         # 初始化管网结构
         self.main_pipe = self._create_main_pipe()
@@ -298,7 +300,7 @@ class IrrigationSystem:
         cumulative_loss = 0
         for i, segment in enumerate(self.main_pipe):
             if i == 0:
-                segment["pressure"] = self.rukoushuitou
+                segment["pressure"] = self.frist_pressure
             else:
                 previous_pressure = self.main_pipe[i - 1]["pressure"]
                 current_loss = self.main_pipe[i - 1]["head_loss"]
@@ -340,7 +342,7 @@ class IrrigationSystem:
         for submain in self.submains:
             if submain["diameter_first_half"] > 0 and submain["diameter_second_half"] > 0:
                 cost += (submain["length"] / 2) * price_lookup["submain"][submain["diameter_first_half"]] * 2
-                cost += ((submain["length"] / 2) - 66) * price_lookup["submain"][submain["diameter_second_half"]] * 2
+                cost += ((submain["length"] / 2) - DEFAULT_DRIP_LINE_LENGTH) * price_lookup["submain"][submain["diameter_second_half"]] * 2
 
         # 计算农管成本
         lateral_configs = {}
@@ -381,7 +383,7 @@ class IrrigationSystem:
             segments.append({
                 "index": i,
                 "length": self.first_segment_length if i == 0 else self.node_spacing,
-                "diameter": 500,
+                "diameter": self.frist_diameter,
                 "flow_rate": 0.0,
                 "velocity": 0.0,
                 "head_loss": 0.0,
@@ -405,7 +407,7 @@ class IrrigationSystem:
         """创建农管"""
         laterals = []
         for submain in self.submains:
-            lateral_count = math.ceil((submain["length"]) / (67 * 2)) * 2 * 2
+            lateral_count = math.ceil((submain["length"]) / (DEFAULT_DRIP_LINE_LENGTH * 2)) * 2 * 2
 
             for i in range(lateral_count):
                 laterals.append({
@@ -466,7 +468,7 @@ class NSGAOptimizationTracker:
 
         # 动态图表显示设置
         self.show_dynamic_plots = show_dynamic_plots
-        self.auto_save = auto_save  # 新增控制自动保存的选项
+        self.auto_save = auto_save
         self.enable_smoothing = enable_smoothing  # 新增控制平滑的选项
         self.fig_2d = None
         self.ax1 = None
@@ -498,7 +500,7 @@ class NSGAOptimizationTracker:
         self.ax1.set_title('丰字NSGA-II算法优化迭代曲线', fontproperties=chinese_font, fontsize=chinese_size + 2)
         self.ax1.grid(True, linestyle='--', alpha=0.7)
 
-        self.ax2.set_xlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax2.set_xlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
         self.ax2.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
         self.ax2.grid(True, linestyle='--', alpha=0.7)
 
@@ -520,7 +522,7 @@ class NSGAOptimizationTracker:
         self.ax_3d = self.fig_3d.add_subplot(111, projection='3d')
         self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
         self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
-        self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        self.ax_3d.set_zlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
         self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
         self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
 
@@ -621,8 +623,7 @@ class NSGAOptimizationTracker:
                 import __main__
                 if hasattr(__main__, 'select_best_solution_by_marginal_improvement'):
                     # 使用与主程序相同的函数和参数
-                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front,
-                                                                                          max_variance_threshold=5.0)
+                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front, max_variance_threshold=MAX_VARIANCE)
                 else:
                     # 如果无法导入，使用内部实现
                     best_solution = self._select_best_solution(valid_front)
@@ -701,7 +702,7 @@ class NSGAOptimizationTracker:
             self.update_with_front(generation, population, pareto_front)
 
     # 内部辅助方法 - 确保与全局函数完全一致
-    def _select_best_solution(self, solutions, max_variance_threshold=5.0):
+    def _select_best_solution(self, solutions, max_variance_threshold=MAX_VARIANCE):
         """
         内部L方法选择函数 - 保持与全局函数一致，确保在跟踪器无法导入全局函数时可以使用
         """
@@ -818,7 +819,7 @@ class NSGAOptimizationTracker:
             self.ax1.autoscale_view()
             self.ax2.relim()
             self.ax2.autoscale_view()
-            # 更新标题，反映这是帕累托解的平均值
+            # 更新标题，反映这是最优个体的迭代曲线
             self.ax1.set_title('丰字NSGA-II算法优化最优个体迭代曲线', fontproperties=chinese_font,
                                fontsize=chinese_size + 2)
 
@@ -834,10 +835,10 @@ class NSGAOptimizationTracker:
                 alpha=0.6
             )
 
-            self.ax_3d.view_init(elev=30, azim=-35)
+            self.ax_3d.view_init(elev=30, azim=-35)  # 默认30，45
             self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
-            self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_zlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
 
             # 设置3D图的tick标签字体
@@ -916,7 +917,7 @@ class NSGAOptimizationTracker:
 
             # 添加颜色条
             cbar = self.fig_3d.colorbar(self.scatter, ax=self.ax_3d, pad=0.1)
-            cbar.set_label('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+            cbar.set_label('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
 
             # 设置颜色条刻度标签字体
             for label in cbar.ax.get_yticklabels():
@@ -926,9 +927,8 @@ class NSGAOptimizationTracker:
             self.ax_3d.view_init(elev=30, azim=-35)
             self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
-            self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
-            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font,
-                                 fontsize=chinese_size + 2)
+            self.ax_3d.set_zlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
+            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
 
             # 设置3D图的tick标签字体
             for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():
@@ -989,7 +989,7 @@ class NSGAOptimizationTracker:
 
         # 方差曲线 - 移除标记点，只使用线条
         ax2.plot(self.generations, smoothed_variance, 'r-', linewidth=2)
-        ax2.set_xlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        ax2.set_xlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
         ax2.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
         ax2.grid(True, linestyle='--', alpha=0.7)
 
@@ -1036,7 +1036,7 @@ class NSGAOptimizationTracker:
             self.all_costs,
             self.all_variances,
             self.all_generations,
-            c=self.all_generations,  # 按代数上色
+            c=self.all_generations,  # 按迭代次数上色
             cmap='viridis',
             s=50,
             alpha=0.6
@@ -1044,7 +1044,7 @@ class NSGAOptimizationTracker:
 
         # 添加颜色条
         cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
-        cbar.set_label('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        cbar.set_label('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
 
         # 设置颜色条刻度标签字体
         for label in cbar.ax.get_yticklabels():
@@ -1054,7 +1054,7 @@ class NSGAOptimizationTracker:
         # 设置轴标签
         ax.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
         ax.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
-        ax.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
+        ax.set_zlabel('迭代次数', fontproperties=chinese_font, fontsize=chinese_size)
 
         # 设置图表标题
         ax.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
@@ -1076,9 +1076,8 @@ class NSGAOptimizationTracker:
         plt.show(block=False)
 
 
-def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True, auto_save=True):
+def multi_objective_optimization(irrigation_system, lgz1, lgz2, swarm_size, max_iterations, show_plots, auto_save):
     """多目标优化函数"""
-    global tracker  # 添加此行，使tracker变成全局变量
 
     if hasattr(creator, "FitnessMulti"):
         del creator.FitnessMulti
@@ -1251,7 +1250,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     toolbox.register("select", tools.selNSGA2)
 
     # 执行优化
-    population = toolbox.population(n=200)
+    population = toolbox.population(n=swarm_size)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("avg", np.mean, axis=0)
@@ -1274,7 +1273,7 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     tracker.update_with_front(0, population, current_front)
 
     # 演化过程
-    for gen in range(1, 180):
+    for gen in range(1, max_iterations):
         offspring = algorithms.varOr(population, toolbox, 100, 0.7, 0.2)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
@@ -1300,10 +1299,60 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, show_plots=True,
     return tools.sortNondominated(population, len(population), first_front_only=True)[0], logbook
 
 
-def print_detailed_results(irrigation_system, best_individual, lgz1, lgz2,
-                           output_file="optimization_results_NSGAⅡ_SHUANG.txt"):
-    """优化后的结果输出函数，包含压力分析"""
+# 将_update_pipe_diameters从局部函数提升为全局函数
+def update_pipe_diameters(irrigation_system, individual):
+    """更新管网直径配置"""
+    # 解码个体
+    main_indices = individual[:len(irrigation_system.main_pipe) - 1]
+    submain_first_indices = individual[len(irrigation_system.main_pipe) - 1:
+                                       len(irrigation_system.main_pipe) + len(irrigation_system.submains) - 1]
+    submain_second_indices = individual[len(irrigation_system.main_pipe) +
+                                        len(irrigation_system.submains) - 1:]
 
+    # 更新干管管径（确保管径递减）
+    prev_diameter = None
+    for i, index in enumerate(main_indices, start=1):
+        available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
+                               if prev_diameter is None or d <= prev_diameter]
+        if not available_diameters:
+            return
+
+        normalized_index = min(index, len(available_diameters) - 1)
+        diameter = available_diameters[normalized_index]
+        irrigation_system.main_pipe[i]["diameter"] = diameter
+        prev_diameter = diameter
+
+    # 更新斗管管径
+    for i, (first_index, second_index) in enumerate(zip(submain_first_indices,
+                                                        submain_second_indices)):
+        # 获取连接处干管直径
+        main_connection_diameter = irrigation_system.main_pipe[i + 1]["diameter"]
+
+        # 确保斗管第一段管径不大于干管
+        available_first_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
+                                     if d <= main_connection_diameter]
+        if not available_first_diameters:
+            return
+
+        normalized_first_index = min(first_index, len(available_first_diameters) - 1)
+        first_diameter = available_first_diameters[normalized_first_index]
+
+        # 确保斗管第二段管径不大于第一段
+        available_second_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
+                                      if d <= first_diameter]
+        if not available_second_diameters:
+            return
+
+        normalized_second_index = min(second_index, len(available_second_diameters) - 1)
+        second_diameter = available_second_diameters[normalized_second_index]
+
+        irrigation_system.submains[i]["diameter_first_half"] = first_diameter
+        irrigation_system.submains[i]["diameter_second_half"] = second_diameter
+
+
+def print_detailed_results(irrigation_system, best_individual, output_file="optimization_results_NSGAⅡ_SHUANG.txt"):
+    """优化后的结果输出函数，包含压力分析"""
+    update_pipe_diameters(irrigation_system, best_individual)
     with open(output_file, 'w', encoding='utf-8') as f:
         def write_line(text):
             print(text)
@@ -1463,7 +1512,7 @@ def visualize_pareto_front(pareto_front):
         print(f"可视化失败: {str(e)}")
 
 
-def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=5.0):
+def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=MAX_VARIANCE):
     """
     使用科学的多目标选择方法，引入更合理的平衡机制和平滑处理
 
@@ -1578,24 +1627,27 @@ def select_best_solution_by_marginal_improvement(solutions, max_variance_thresho
         return sorted_solutions[0]
 
 
-def main():
+def main(node_count, frist_pressure, frist_diameter, LGZ1, LGZ2, Size, Max_iterations, SHOW, SAVE):
     """主函数"""
     try:
         # 初始化字体配置
         configure_fonts()
         # 创建灌溉系统
         irrigation_system = IrrigationSystem(
-            node_count=32,
-            rukoushuitou=49.62
+            node_count=node_count,
+            frist_pressure=frist_pressure,
+            frist_diameter=frist_diameter
         )
 
         # 设置轮灌参数
-        best_lgz1, best_lgz2 = 11, 2
+        best_lgz1, best_lgz2 = LGZ1, LGZ2
         logging.info("开始进行多目标优化...")
 
         # 执行优化
         start_time = time.time()
-        pareto_front, logbook = multi_objective_optimization(irrigation_system, best_lgz1, best_lgz2)
+        pareto_front, logbook = multi_objective_optimization(irrigation_system, best_lgz1, best_lgz2, Size,
+                                                             Max_iterations, SHOW, SAVE)
+
         end_time = time.time()
 
         logging.info(f"优化完成，耗时: {end_time - start_time:.2f}秒")
@@ -1607,7 +1659,7 @@ def main():
                 # 选择最优解
                 best_solution = select_best_solution_by_marginal_improvement(valid_solutions)
                 # 使用相同的最优解进行详细结果输出
-                print_detailed_results(irrigation_system, best_solution, best_lgz1, best_lgz2)
+                print_detailed_results(irrigation_system, best_solution)
                 # 可视化Pareto前沿，并标记出相同的最优解
                 visualize_pareto_front(pareto_front)
 
@@ -1633,7 +1685,6 @@ def main():
         print("关闭图表窗口不会影响结果，可随时查看保存的PNG图像文件")
         print("=========================================================")
 
-        # 关键修改：使用源程序中的方式保持窗口打开
         # 关闭交互模式，然后显示窗口
         plt.ioff()  # 关闭交互模式
         plt.show()  # 阻塞直到所有窗口关闭
@@ -1648,4 +1699,4 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
-    main()
+    main(32, 49.62, 500, 11, 2, 200, 50, True, True)
