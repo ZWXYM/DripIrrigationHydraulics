@@ -538,7 +538,6 @@ class PSOOptimizationTracker:
     # 新增平滑曲线相关方法
     def _smooth_curve(self, data, window_size=21, poly_order=3):
         """使用Savitzky-Golay滤波器平滑数据"""
-        import numpy as np
 
         # 如果数据点不足，返回原始数据
         if len(data) < window_size:
