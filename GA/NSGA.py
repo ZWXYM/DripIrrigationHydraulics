@@ -103,7 +103,6 @@ def configure_fonts():
     }
 
 
-
 # 水力学计算函数
 def water_speed(diameter, flow_rate):
     """计算流速"""
@@ -623,7 +622,8 @@ class NSGAOptimizationTracker:
                 import __main__
                 if hasattr(__main__, 'select_best_solution_by_marginal_improvement'):
                     # 使用与主程序相同的函数和参数
-                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front,max_variance_threshold=5.0)
+                    best_solution = __main__.select_best_solution_by_marginal_improvement(valid_front,
+                                                                                          max_variance_threshold=5.0)
                 else:
                     # 如果无法导入，使用内部实现
                     best_solution = self._select_best_solution(valid_front)
@@ -820,7 +820,8 @@ class NSGAOptimizationTracker:
             self.ax2.relim()
             self.ax2.autoscale_view()
             # 更新标题，反映这是帕累托解的平均值
-            self.ax1.set_title('梳齿状NSGA-II算法优化最优个体迭代曲线', fontproperties=chinese_font,fontsize=chinese_size + 2)
+            self.ax1.set_title('梳齿状NSGA-II算法优化最优个体迭代曲线', fontproperties=chinese_font,
+                               fontsize=chinese_size + 2)
 
             # 更新3D图表
             self.ax_3d.clear()
@@ -838,7 +839,7 @@ class NSGAOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
-            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font,fontsize=chinese_size + 2)
+            self.ax_3d.set_title('梳齿状NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
 
             # 设置3D图的tick标签字体
             for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():

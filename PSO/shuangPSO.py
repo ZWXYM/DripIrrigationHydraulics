@@ -8,7 +8,6 @@ from deap import tools
 from matplotlib import rcParams
 import platform
 
-
 # 系统常量定义
 DRIPPER_SPACING = 0.3  # 滴灌孔间隔（米）
 DEFAULT_NODE_SPACING = 300  # 默认节点间距（米）
@@ -718,7 +717,7 @@ class PSOOptimizationTracker:
         return not_worse and better
 
     # 内部辅助方法 - 确保与全局函数完全一致
-    def _select_best_solution(self, solutions, max_variance_threshold=4.0):
+    def _select_best_solution(self, solutions, max_variance_threshold=5.0):
         """
         内部L方法选择函数 - 保持与全局函数一致，确保在跟踪器无法导入全局函数时可以使用
         """
@@ -1147,10 +1146,9 @@ class Particle:
 def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_iterations=180, show_plots=True,
                         auto_save=True):
     """多目标PSO优化函数"""
-    global tracker  # 添加此行，使tracker变成全局变量
-
     # 创建跟踪器
     tracker = PSOOptimizationTracker(show_dynamic_plots=show_plots, auto_save=auto_save)
+
     # 初始化轮灌组配置
     group_count = irrigation_system.initialize_irrigation_groups(lgz1, lgz2)
 
@@ -1482,16 +1480,45 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size=100, max_itera
             # 更新跟踪器 - 使用新的update_with_front方法
             tracker.update_with_front(iteration, swarm, pareto_front)
 
-            # 每隔一定次数输出进度
+            # 每隔一定代数输出进度
             if iteration % 10 == 0:
                 logging.info(f"Iteration {iteration}: {record}")
                 logging.info(f"当前Pareto前沿大小: {len(pareto_front)}")
 
+    # 创建一个最终的、无重复的帕累托前沿
+    final_pareto_front = []
+    for particle in pareto_front:
+        is_duplicate = False
+        for existing in final_pareto_front:
+            if np.array_equal(particle.position, existing.position):
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            final_pareto_front.append(particle)
+
+    # 再次评估所有解，确保使用完全相同的评估标准
+    for particle in final_pareto_front:
+        particle.fitness = evaluate(particle.position)
+        particle.best_fitness = particle.fitness
+
+    # 确保在返回前进行一次最后的帕累托优化
+    non_dominated_front = []
+    for particle in final_pareto_front:
+        if np.all(np.isfinite(particle.best_fitness)):
+            is_dominated = False
+            for other in final_pareto_front:
+                if dominates(other.best_fitness, particle.best_fitness) and not np.array_equal(other.position,
+                                                                                               particle.position):
+                    is_dominated = True
+                    break
+            if not is_dominated:
+                non_dominated_front.append(particle)
+
     # 绘制最终图表
     tracker.finalize_plots()
 
-    # 返回Pareto前沿和日志
-    return pareto_front, logbook
+    # 返回最终优化过的帕累托前沿
+    return non_dominated_front, logbook
 
 
 def multi_objective_optimization(irrigation_system, lgz1, lgz2):
@@ -1662,7 +1689,7 @@ def visualize_pareto_front(pareto_front_particles):
         print(f"可视化失败: {str(e)}")
 
 
-def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=4.0):
+def select_best_solution_by_marginal_improvement(solutions, max_variance_threshold=5.0):
     """
     使用科学的多目标选择方法，引入更合理的平衡机制和平滑处理
 

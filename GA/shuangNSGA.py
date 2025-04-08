@@ -54,7 +54,6 @@ PIPE_SPECS = {
 }
 
 
-
 def configure_fonts():
     """配置全局图表字体设置"""
     # 检测操作系统类型
@@ -840,7 +839,7 @@ class NSGAOptimizationTracker:
             self.ax_3d.set_xlabel('系统成本 (元)', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_ylabel('水头均方差', fontproperties=chinese_font, fontsize=chinese_size)
             self.ax_3d.set_zlabel('迭代代数', fontproperties=chinese_font, fontsize=chinese_size)
-            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font,fontsize=chinese_size + 2)
+            self.ax_3d.set_title('丰字NSGA-II算法优化3D进度图', fontproperties=chinese_font, fontsize=chinese_size + 2)
 
             # 设置3D图的tick标签字体
             for label in self.ax_3d.get_xticklabels() + self.ax_3d.get_yticklabels() + self.ax_3d.get_zticklabels():
