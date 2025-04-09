@@ -342,8 +342,7 @@ class IrrigationSystem:
         for submain in self.submains:
             if submain["diameter_first_half"] > 0 and submain["diameter_second_half"] > 0:
                 cost += (submain["length"] / 2) * price_lookup["submain"][submain["diameter_first_half"]] * 2
-                cost += ((submain["length"] / 2) - DEFAULT_DRIP_LINE_LENGTH) * price_lookup["submain"][
-                    submain["diameter_second_half"]] * 2
+                cost += ((submain["length"] / 2) - DEFAULT_DRIP_LINE_LENGTH) * price_lookup["submain"][submain["diameter_second_half"]] * 2
 
         # 计算农管成本
         lateral_configs = {}
@@ -408,7 +407,7 @@ class IrrigationSystem:
         """创建农管"""
         laterals = []
         for submain in self.submains:
-            lateral_count = math.ceil((submain["length"]) / (DEFAULT_DRIP_LINE_LENGTH * 2)) * 2 * 2
+            lateral_count = math.ceil((submain["length"]) / ((DEFAULT_DRIP_LINE_LENGTH+1) * 2)) * 2 * 2
 
             for i in range(lateral_count):
                 laterals.append({

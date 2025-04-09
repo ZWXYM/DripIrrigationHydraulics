@@ -408,7 +408,7 @@ class IrrigationSystem:
         """创建农管"""
         laterals = []
         for submain in self.submains:
-            lateral_count = math.ceil((submain["length"]) / (DEFAULT_DRIP_LINE_LENGTH * 2)) * 2 * 2
+            lateral_count = math.ceil((submain["length"]) / ((DEFAULT_DRIP_LINE_LENGTH+1) * 2)) * 2 * 2
 
             for i in range(lateral_count):
                 laterals.append({
