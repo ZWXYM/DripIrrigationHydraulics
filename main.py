@@ -11,8 +11,9 @@ import re
 import csv
 import shutil  # 用于移动文件
 import numpy as np
-import matplotlib.pyplot as plt
 import json
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 
 # 配置日志
 logging.basicConfig(
@@ -28,10 +29,6 @@ logging.basicConfig(
 # 在主函数开始处设置matplotlib字体
 def setup_matplotlib_fonts():
     """设置matplotlib中文字体以避免警告"""
-    import matplotlib.pyplot as plt
-    import matplotlib.font_manager as fm
-    import os
-
     # 常见的中文字体
     chinese_fonts = [
         'SimHei', 'Microsoft YaHei', 'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
@@ -138,33 +135,29 @@ def create_result_directories(zhiguan_num):
         }
 
 
-def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou, auto_mode=False):
+def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, frist_pressure, frist_diameter, population_size=None,
+                                max_iterations=None, auto_mode=False):
     """修改算法文件中的参数"""
     try:
         with open(file_path, 'r', encoding='utf-8-sig') as f:
             code = f.read()
 
-        # 修改IrrigationSystem初始化部分，直接查找并替换整个初始化行
-        # 查找系统初始化的常规模式
         pattern1 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\s*\(\s*\n\s*node_count=\d+[^)]*\)')
-
-        # 如果找到了匹配，进行替换
         if pattern1.search(code):
             code = pattern1.sub(
-                f'irrigation_system = IrrigationSystem(\n            node_count={node_count},\n            rukoushuitou={rukoushuitou})',
+                f'irrigation_system = IrrigationSystem(\n            node_count={node_count},\n            frist_pressure={frist_pressure},\n            frist_diameter={frist_diameter})',
                 code)
         else:
-            # 尝试另一种模式：单行初始化
             pattern2 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\s*\(\s*node_count=\d+[^)]*\)')
             if pattern2.search(code):
                 code = pattern2.sub(
-                    f'irrigation_system = IrrigationSystem(node_count={node_count}, rukoushuitou={rukoushuitou})', code)
+                    f'irrigation_system = IrrigationSystem(node_count={node_count}, frist_pressure={frist_pressure}, frist_diameter={frist_diameter})',
+                    code)
             else:
-                # 如果以上模式都不匹配，尝试更宽松的匹配
                 pattern3 = re.compile(r'irrigation_system\s*=\s*IrrigationSystem\([^)]*\)')
                 if pattern3.search(code):
                     code = pattern3.sub(
-                        f'irrigation_system = IrrigationSystem(node_count={node_count}, rukoushuitou={rukoushuitou})',
+                        f'irrigation_system = IrrigationSystem(node_count={node_count}, frist_pressure={frist_pressure}, frist_diameter={frist_diameter})',
                         code)
 
         # 修改lgz1和lgz2参数
@@ -172,8 +165,25 @@ def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou,
         if lgz_pattern.search(code):
             code = lgz_pattern.sub(f'best_lgz1, best_lgz2 = {lgz1}, {lgz2}', code)
 
+        # 修改main函数调用部分而不是修改函数定义
+        if population_size is not None and max_iterations is not None:
+            # 查找main函数调用模式
+            main_call_pattern = re.compile(
+                r'main\(\d+,\s*[\d\.]+,\s*\d+,\s*\d+,\s*\d+(?:,\s*\d+)?(?:,\s*\d+)?(?:,\s*[A-Za-z]+)?(?:,\s*[A-Za-z]+)?\)')
+            if main_call_pattern.search(code):
+                # 替换main函数调用，使用正确的参数顺序
+                code = main_call_pattern.sub(
+                    f'main({node_count}, {frist_pressure}, {frist_diameter}, {lgz1}, {lgz2}, {population_size}, {max_iterations}, True, True)',
+                    code)
+            else:
+                # 如果找不到特定模式，尝试更简单的替换
+                simple_main_pattern = re.compile(r'main\([^)]*\)')
+                if simple_main_pattern.search(code):
+                    code = simple_main_pattern.sub(
+                        f'main({node_count}, {frist_pressure}, {frist_diameter}, {lgz1}, {lgz2}, {population_size}, {max_iterations}, True, True)',
+                        code)
+
         # 修改输出格式，使管段编号右对齐
-        # 查找并替换write_line()调用中的格式字符串
         code = re.sub(r'{i:2d}', r'{i:>2d}', code)  # 将左对齐改为右对齐
         code = re.sub(r'f"{i:2d}', r'f"{i:>2d}', code)  # 包含字符串前缀的情况
 
@@ -191,7 +201,8 @@ def modify_algorithm_parameters(file_path, node_count, lgz1, lgz2, rukoushuitou,
         return None
 
 
-def run_optimization(algorithm_file, node_count, lgz1, lgz2, rukoushuitou, auto_mode=False):
+def run_optimization(algorithm_file, node_count, lgz1, lgz2, frist_pressure, frist_diameter, population_size=None,
+                     max_iterations=None, auto_mode=False):
     """运行单个优化算法"""
     try:
         # 获取算法名称用于显示
@@ -206,15 +217,22 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2, rukoushuitou, auto_
             else:
                 algo_name = "NSGA-II梳齿布局"
 
-        logging.info(f"准备运行 {algo_name} (节点: {node_count}, lgz1: {lgz1}, lgz2: {lgz2}, 入口水头: {rukoushuitou})")
+        pop_info = f", 种群大小: {population_size}, 迭代次数: {max_iterations}" if population_size else ""
+        logging.info(
+            f"准备运行 {algo_name} (节点: {node_count}, lgz1: {lgz1}, lgz2: {lgz2}, 入口水头: {frist_pressure}, 管径: {frist_diameter}{pop_info})")
 
-        # 修改参数并创建临时文件 - 但不注入任何跟踪器修改代码
-        temp_file = modify_algorithm_parameters(file_path=algorithm_file,
-                                                node_count=node_count,
-                                                lgz1=lgz1,
-                                                lgz2=lgz2,
-                                                rukoushuitou=rukoushuitou,
-                                                auto_mode=False)  # 这里改为False，避免注入导致的语法错误
+        # 修改参数并创建临时文件
+        temp_file = modify_algorithm_parameters(
+            file_path=algorithm_file,
+            node_count=node_count,
+            lgz1=lgz1,
+            lgz2=lgz2,
+            frist_pressure=frist_pressure,
+            frist_diameter=frist_diameter,
+            population_size=population_size,
+            max_iterations=max_iterations,
+            auto_mode=auto_mode
+        )
 
         if not temp_file:
             logging.error(f"无法为 {algo_name} 创建临时文件")
@@ -235,7 +253,7 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2, rukoushuitou, auto_
         if os.name == 'nt':
             env["PYTHONUTF8"] = "1"  # 强制使用UTF-8
 
-        # 创建一个更简单的包装脚本，只处理图形保存功能
+        # 创建包装脚本处理图形保存
         if auto_mode:
             wrapper_code = f"""# -*- coding: utf-8 -*-
 import os
@@ -245,104 +263,6 @@ matplotlib.use('Agg')  # 使用非交互式后端
 
 # 执行原始脚本
 exec(open("{temp_file}", encoding="utf-8-sig").read())
-
-# 创建数据导出结构
-tracker_data = {{}}
-
-# 尝试从PSO跟踪器获取数据 - 改进版
-try:
-    if 'PSOOptimizationTracker' in globals():
-        for tracker_name, tracker_obj in [(name, obj) for name, obj in globals().items() if isinstance(obj, globals().get('PSOOptimizationTracker', object))]:
-            print(f"找到PSO跟踪器: {{tracker_name}}")
-            if hasattr(tracker_obj, 'iterations') and hasattr(tracker_obj, 'best_costs') and hasattr(tracker_obj, 'best_variances'):
-                tracker_data = {{
-                    'iterations': tracker_obj.iterations,
-                    'best_costs': tracker_obj.best_costs,
-                    'best_variances': tracker_obj.best_variances
-                }}
-                print(f"成功从PSO跟踪器 {{tracker_name}} 获取数据，迭代次数: {{len(tracker_data['iterations'])}}")
-                break
-except Exception as e:
-    print(f"从PSO跟踪器获取数据时出错: {{e}}")
-
-# 尝试从NSGA跟踪器获取数据 - 改进版
-try:
-    if not tracker_data and 'NSGAOptimizationTracker' in globals():
-        for tracker_name, tracker_obj in [(name, obj) for name, obj in globals().items() if isinstance(obj, globals().get('NSGAOptimizationTracker', object))]:
-            print(f"找到NSGA跟踪器: {{tracker_name}}")
-            if hasattr(tracker_obj, 'generations') and hasattr(tracker_obj, 'best_costs') and hasattr(tracker_obj, 'best_variances'):
-                tracker_data = {{
-                    'generations': tracker_obj.generations,
-                    'best_costs': tracker_obj.best_costs,
-                    'best_variances': tracker_obj.best_variances
-                }}
-                print(f"成功从NSGA跟踪器 {{tracker_name}} 获取数据，迭代次数: {{len(tracker_data['generations'])}}")
-                break
-except Exception as e:
-    print(f"从NSGA跟踪器获取数据时出错: {{e}}")
-
-# 如果没有找到跟踪器，尝试从全局变量中提取数据 - 备选方案
-try:
-    if not tracker_data:
-        # 检查是否有任何可能的跟踪数据
-        possible_iterations = None
-        possible_costs = None
-        possible_variances = None
-
-        # 搜索可能的迭代次数列表
-        for var_name in ['iterations', 'generations']:
-            if var_name in globals() and isinstance(globals()[var_name], list) and globals()[var_name]:
-                possible_iterations = globals()[var_name]
-                break
-
-        # 搜索可能的成本列表
-        for var_name in ['best_costs', 'costs', 'all_costs']:
-            if var_name in globals() and isinstance(globals()[var_name], list) and globals()[var_name]:
-                possible_costs = globals()[var_name]
-                break
-
-        # 搜索可能的方差列表
-        for var_name in ['best_variances', 'variances', 'all_variances']:
-            if var_name in globals() and isinstance(globals()[var_name], list) and globals()[var_name]:
-                possible_variances = globals()[var_name]
-                break
-
-        # 如果找到了所有必要的数据，创建跟踪器数据
-        if possible_iterations and possible_costs and possible_variances:
-            key_name = 'iterations' if 'PSO' in "{algorithm_file}" else 'generations'
-            tracker_data = {{
-                key_name: possible_iterations,
-                'best_costs': possible_costs,
-                'best_variances': possible_variances
-            }}
-            print(f"通过全局变量搜索创建了跟踪器数据，迭代次数: {{len(possible_iterations)}}")
-except Exception as e:
-    print(f"从全局变量获取数据时出错: {{e}}")
-
-# 保存跟踪器数据 - 更详细的日志
-tracker_data_file = "pso_tracker_data.json" if "PSO" in "{algorithm_file}" else "nsga_tracker_data.json"
-try:
-    import json
-    if tracker_data:
-        print(f"准备保存跟踪器数据到 {{tracker_data_file}}，数据项数: {{len(tracker_data)}}")
-        with open(tracker_data_file, 'w') as f:
-            json.dump(tracker_data, f)
-        print(f"跟踪器数据已保存到 {{tracker_data_file}}")
-    else:
-        print(f"警告: 没有有效的跟踪器数据可保存，创建样例数据")
-        # 为了保证文件不为空，创建一个样例数据结构
-        sample_data = {{
-            'iterations' if 'PSO' in "{algorithm_file}" else 'generations': list(range(100)),
-            'best_costs': [100000 - i*500 + (i**2)*5 for i in range(100)],
-            'best_variances': [10 - 0.05*i + 0.0025*(i**2) for i in range(100)]
-        }}
-        with open(tracker_data_file, 'w') as f:
-            json.dump(sample_data, f)
-        print(f"创建了样例跟踪器数据文件 {{tracker_data_file}}")
-except Exception as e:
-    print(f"保存跟踪器数据时出错: {{e}}")
-    import traceback
-    print(traceback.format_exc())
 
 # 保存所有打开的图形
 try:
@@ -390,21 +310,6 @@ except Exception as e:
             logging.warning(f"设置进程优先级失败: {str(e)}")
 
         # 创建线程来读取并记录输出
-        def read_output(stream, prefix, log_func):
-            try:
-                for line in stream:
-                    line = line.strip()
-                    if line:
-                        log_func(f"[{prefix}] {line}")
-            except UnicodeDecodeError as e:
-                log_func(f"[{prefix}] 输出流解码错误: {e}")
-                # 尝试以二进制模式读取剩余内容，避免中断
-                try:
-                    for binary_line in stream.buffer:
-                        log_func(f"[{prefix}] [二进制数据]")
-                except:
-                    pass
-
         stdout_thread = threading.Thread(
             target=read_output,
             args=(process.stdout, algo_name, logging.info),
@@ -894,11 +799,19 @@ def get_interactive_params():
 
     # 统一参数
     try:
-        rukoushuitou_input = input("\n入口水头压力(米) [默认:50]: ").strip()
-        params['rukoushuitou'] = float(rukoushuitou_input) if rukoushuitou_input else 50
+        frist_pressure_input = input("\n入口水头压力(米) [默认:50]: ").strip()
+        params['frist_pressure'] = float(frist_pressure_input) if frist_pressure_input else 50
     except ValueError:
         print("  输入无效，将使用默认值")
-        params['rukoushuitou'] = 50
+        params['frist_pressure'] = 50
+
+    # 管径直径参数
+    try:
+        frist_diameter_input = input("\n管径直径(毫米) [默认:500]: ").strip()
+        params['frist_diameter'] = int(frist_diameter_input) if frist_diameter_input else 500
+    except ValueError:
+        print("  输入无效，将使用默认值")
+        params['frist_diameter'] = 500
 
     # 梳齿布局参数
     print("\n梳齿布局参数:")
@@ -949,57 +862,205 @@ def get_interactive_params():
     return params
 
 
-def read_task_queue(queue_file="任务队列.txt"):
-    """读取任务队列文件"""
+def read_task_queue(queue_file="任务队列.csv"):
+    """读取任务队列CSV文件"""
     tasks = []
+
+    try:
+        import csv
+
+        # 尝试多种编码打开文件
+        for encoding in ['utf-8', 'utf-8-sig', 'gbk', 'gb18030']:
+            try:
+                with open(queue_file, 'r', encoding=encoding) as f:
+                    reader = csv.reader(f)
+                    rows = list(reader)
+                    if rows:
+                        # 跳过表头
+                        for i, row in enumerate(rows[1:], 1):
+                            if not row or len(row) < 9:  # 确保至少有9列数据
+                                continue
+
+                            try:
+                                task = {
+                                    'zhiguan': int(row[0]),
+                                    'frist_pressure': float(row[1]),
+                                    'nodes_shuzi': int(row[2]),
+                                    'lgz1_shuzi': int(row[3]),
+                                    'lgz2_shuzi': int(row[4]),
+                                    'nodes_fengzi': int(row[5]),
+                                    'lgz1_fengzi': int(row[6]),
+                                    'lgz2_fengzi': int(row[7]),
+                                    'frist_diameter': int(row[8]) if len(row) > 8 else 500,  # 添加管径参数
+                                    'sequential': False,  # 默认并行执行
+                                    'timeout': 0  # 默认不超时
+                                }
+                                tasks.append(task)
+                            except (ValueError, IndexError) as e:
+                                logging.error(f"解析任务队列第{i}行出错: {e}")
+                                continue
+
+                        logging.info(f"从任务队列文件读取了 {len(tasks)} 个任务")
+                        return tasks
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                logging.error(f"使用{encoding}编码读取文件时出错: {e}")
+                continue
+
+        # 如果所有编码都失败，尝试读取txt文件
+        if not tasks and os.path.exists(queue_file.replace('.csv', '.txt')):
+            return read_task_queue(queue_file.replace('.csv', '.txt'))
+
+        logging.error(f"无法读取任务队列文件: {queue_file}")
+    except Exception as e:
+        logging.error(f"读取任务队列文件出错: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+    return tasks
+
+
+def read_task_queue_txt(queue_file="任务队列.txt"):
+    """读取任务队列TXT文件"""
+    tasks = []
+
+    try:
+        # 尝试多种编码打开文件
+        for encoding in ['utf-8', 'utf-8-sig', 'gbk', 'gb18030']:
+            try:
+                with open(queue_file, 'r', encoding=encoding) as f:
+                    lines = f.readlines()
+                    if lines:
+                        # 跳过表头
+                        for i, line in enumerate(lines[1:], 1):
+                            line = line.strip()
+                            if not line:
+                                continue
+
+                            row = line.split(',')
+                            if len(row) < 8:
+                                continue
+
+                            try:
+                                task = {
+                                    'zhiguan': int(row[0]),
+                                    'frist_pressure': float(row[1]),
+                                    'nodes_shuzi': int(row[2]),
+                                    'lgz1_shuzi': int(row[3]),
+                                    'lgz2_shuzi': int(row[4]),
+                                    'nodes_fengzi': int(row[5]),
+                                    'lgz1_fengzi': int(row[6]),
+                                    'lgz2_fengzi': int(row[7]),
+                                    'frist_diameter': int(row[8]) if len(row) > 8 else 500,
+                                    'sequential': False,
+                                    'timeout': 0
+                                }
+                                tasks.append(task)
+                            except (ValueError, IndexError) as e:
+                                logging.error(f"解析任务队列第{i}行出错: {e}")
+                                continue
+
+                        logging.info(f"从TXT任务队列文件读取了 {len(tasks)} 个任务")
+                        return tasks
+            except UnicodeDecodeError:
+                continue
+
+        logging.error(f"无法读取任务队列TXT文件: {queue_file}")
+    except Exception as e:
+        logging.error(f"读取任务队列TXT文件出错: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+    return tasks
+
+
+def read_system_constants(file_path="系统常量.txt"):
+    """读取系统常量文件"""
+    constants = {
+        "PSO": {"population_size": 150, "max_iterations": 50},
+        "NSGA": {"population_size": 200, "max_iterations": 50},
+        "shuchi": {},
+        "fengzi": {}
+    }
 
     try:
         # 尝试多种编码打开文件
         content = None
         for encoding in ['utf-8', 'utf-8-sig', 'gbk', 'gb18030']:
             try:
-                with open(queue_file, 'r', encoding=encoding) as f:
+                with open(file_path, 'r', encoding=encoding) as f:
                     content = f.read()
                     break
             except UnicodeDecodeError:
                 continue
 
         if content is None:
-            logging.error(f"无法读取任务队列文件: {queue_file}")
-            return tasks
+            logging.error(f"无法读取系统常量文件: {file_path}")
+            return constants
 
+        # 解析PSO和NSGA的种群大小和迭代次数
         lines = content.strip().split('\n')
+        for line in lines:
+            if line.startswith("NSGA种群大小"):
+                values = line.split("：")[1].split(",")
+                constants["NSGA"]["population_size"] = int(values[0])
+                constants["NSGA"]["max_iterations"] = int(values[1])
+            elif line.startswith("PSO种群大小"):
+                values = line.split("：")[1].split(",")
+                constants["PSO"]["population_size"] = int(values[0])
+                constants["PSO"]["max_iterations"] = int(values[1])
 
-        # 跳过表头
-        for i, line in enumerate(lines[1:], 1):
-            line = line.strip()
-            if not line:
+        # 解析梳齿布局和丰字布局系统常量
+        shuchi_section = False
+        fengzi_section = False
+
+        for line in lines:
+            if "梳齿布局系统常量" in line:
+                shuchi_section = True
+                fengzi_section = False
+                continue
+            elif "丰字布局系统常量" in line:
+                shuchi_section = False
+                fengzi_section = True
                 continue
 
-            parts = line.split('\t')
-            if len(parts) >= 8:  # 确保有足够的列
-                try:
-                    task = {
-                        'zhiguan': int(parts[0]),
-                        'rukoushuitou': float(parts[1]),
-                        'nodes_shuzi': int(parts[2]),
-                        'lgz1_shuzi': int(parts[3]),
-                        'lgz2_shuzi': int(parts[4]),
-                        'nodes_fengzi': int(parts[5]),
-                        'lgz1_fengzi': int(parts[6]),
-                        'lgz2_fengzi': int(parts[7]),
-                        'sequential': False,  # 默认并行执行
-                        'timeout': 0  # 默认不超时
-                    }
-                    tasks.append(task)
-                except (ValueError, IndexError) as e:
-                    logging.error(f"解析任务队列第{i}行出错: {e}")
+            if "=" in line:
+                parts = line.split("=", 1)
+                if len(parts) != 2:
                     continue
-        logging.info(f"从任务队列文件读取了 {len(tasks)} 个任务")
-    except Exception as e:
-        logging.error(f"读取任务队列文件出错: {e}")
 
-    return tasks
+                key = parts[0].strip()
+                value = parts[1].strip()
+
+                # 移除注释
+                if "#" in value:
+                    value = value.split("#")[0].strip()
+
+                # 尝试转换为数值
+                try:
+                    if "." in value:
+                        value = float(value)
+                    else:
+                        value = int(value)
+                except ValueError:
+                    pass
+
+                if shuchi_section:
+                    constants["shuchi"][key] = value
+                elif fengzi_section:
+                    constants["fengzi"][key] = value
+
+        logging.info(f"成功读取系统常量，PSO种群大小: {constants['PSO']['population_size']}, "
+                     f"迭代次数: {constants['PSO']['max_iterations']}, "
+                     f"NSGA种群大小: {constants['NSGA']['population_size']}, "
+                     f"迭代次数: {constants['NSGA']['max_iterations']}")
+    except Exception as e:
+        logging.error(f"读取系统常量文件出错: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+    return constants
 
 
 def generate_comparison_charts(result_dirs):
@@ -1530,7 +1591,7 @@ def extract_performance_info(result_files):
     return system_costs, variance_values
 
 
-def execute_optimization_task(task, auto_mode=False):
+def execute_optimization_task(task, system_constants, auto_mode=False):
     """执行单个优化任务"""
     # 检查目录结构
     if not create_directory_structure():
@@ -1542,9 +1603,13 @@ def execute_optimization_task(task, auto_mode=False):
 
     # 打印任务信息
     print(f"\n执行任务详情 - 支管编号: {task['zhiguan']}")
-    print(f"  入口水头压力: {task['rukoushuitou']}米")
+    print(f"  入口水头压力: {task['frist_pressure']}米")
     print(f"  梳齿布局: 节点 {task['nodes_shuzi']}, lgz1 {task['lgz1_shuzi']}, lgz2 {task['lgz2_shuzi']}")
     print(f"  丰字布局: 节点 {task['nodes_fengzi']}, lgz1 {task['lgz1_fengzi']}, lgz2 {task['lgz2_fengzi']}")
+    print(
+        f"  PSO设置: 种群 {system_constants['PSO']['population_size']}, 迭代 {system_constants['PSO']['max_iterations']}")
+    print(
+        f"  NSGA设置: 种群 {system_constants['NSGA']['population_size']}, 迭代 {system_constants['NSGA']['max_iterations']}")
 
     start_time = time.time()
     running_processes = []
@@ -1552,10 +1617,34 @@ def execute_optimization_task(task, auto_mode=False):
     try:
         # 创建灌溉系统优化算法列表
         algorithms = [
-            {"file": "PSO/PSO.py", "type": "shuchi", "name": "PSO梳齿布局"},
-            {"file": "PSO/shuangPSO.py", "type": "fengzi", "name": "PSO丰字布局"},
-            {"file": "GA/NSGA.py", "type": "shuchi", "name": "NSGA-II梳齿布局"},
-            {"file": "GA/shuangNSGA.py", "type": "fengzi", "name": "NSGA-II丰字布局"}
+            {
+                "file": "PSO/PSO.py",
+                "type": "shuchi",
+                "name": "PSO梳齿布局",
+                "population_size": system_constants["PSO"]["population_size"],
+                "max_iterations": system_constants["PSO"]["max_iterations"]
+            },
+            {
+                "file": "PSO/shuangPSO.py",
+                "type": "fengzi",
+                "name": "PSO丰字布局",
+                "population_size": system_constants["PSO"]["population_size"],
+                "max_iterations": system_constants["PSO"]["max_iterations"]
+            },
+            {
+                "file": "GA/NSGA.py",
+                "type": "shuchi",
+                "name": "NSGA-II梳齿布局",
+                "population_size": system_constants["NSGA"]["population_size"],
+                "max_iterations": system_constants["NSGA"]["max_iterations"]
+            },
+            {
+                "file": "GA/shuangNSGA.py",
+                "type": "fengzi",
+                "name": "NSGA-II丰字布局",
+                "population_size": system_constants["NSGA"]["population_size"],
+                "max_iterations": system_constants["NSGA"]["max_iterations"]
+            }
         ]
 
         if task.get('sequential', False):
@@ -1573,10 +1662,20 @@ def execute_optimization_task(task, auto_mode=False):
                     lgz1 = task['lgz1_fengzi']
                     lgz2 = task['lgz2_fengzi']
 
-                rukoushuitou = task['rukoushuitou']
-
+                frist_pressure = task['frist_pressure']
+                frist_diameter = task['frist_diameter']
                 # 运行算法
-                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2, rukoushuitou, auto_mode=auto_mode)
+                process_info = run_optimization(
+                    algo['file'],
+                    nodes,
+                    lgz1,
+                    lgz2,
+                    frist_pressure,
+                    frist_diameter,
+                    algo['population_size'],
+                    algo['max_iterations'],
+                    auto_mode
+                )
 
                 if process_info:
                     print(f"  {algo['name']} 已启动，等待完成...")
@@ -1612,10 +1711,21 @@ def execute_optimization_task(task, auto_mode=False):
                     lgz1 = task['lgz1_fengzi']
                     lgz2 = task['lgz2_fengzi']
 
-                rukoushuitou = task['rukoushuitou']
+                frist_pressure = task['frist_pressure']
+                frist_diameter = task['frist_diameter']
 
                 # 运行算法
-                process_info = run_optimization(algo['file'], nodes, lgz1, lgz2, rukoushuitou, auto_mode=auto_mode)
+                process_info = run_optimization(
+                    algo['file'],
+                    nodes,
+                    lgz1,
+                    lgz2,
+                    frist_pressure,
+                    frist_diameter,
+                    algo['population_size'],
+                    algo['max_iterations'],
+                    auto_mode
+                )
 
                 if process_info:
                     print(f"  {algo['name']} 已启动！")
@@ -1752,121 +1862,167 @@ def execute_optimization_task(task, auto_mode=False):
     # 保存比较结果到文件
     save_comparison_results(comparison_info, result_dirs)
 
-    # 生成算法对比图表
-    generate_comparison_charts(result_dirs)
+    # 生成算法对比图表 - 删除跟踪器功能，只保留对比图生成
+    # 删除: generate_comparison_charts(result_dirs)
 
     # 输出执行时间信息
     print(f"\n支管 {task['zhiguan']} 优化任务执行完成，耗时: {total_time:.1f}秒 ({total_time / 60:.1f}分钟)")
 
 
-
 def main():
     """主函数"""
-    # 在主函数开始处调用此函数
-    setup_matplotlib_fonts()
+    try:
+        # 在主函数开始处调用此函数
+        setup_matplotlib_fonts()
 
-    # 打印程序标题
-    print("\n" + "=" * 60)
-    print("   灌溉系统优化算法管理器")
-    print("=" * 60)
+        # 打印程序标题
+        print("\n" + "=" * 60)
+        print("   灌溉系统优化算法管理器")
+        print("=" * 60)
 
-    # 检查系统资源
-    cpu_count, available_memory = check_system_resources()
-    print(f"\n系统资源信息:")
-    print(f"  - CPU 核心数: {cpu_count}")
-    print(f"  - 可用内存: {available_memory:.1f} GB")
+        # 检查系统资源
+        cpu_count, available_memory = check_system_resources()
+        print(f"\n系统资源信息:")
+        print(f"  - CPU 核心数: {cpu_count}")
+        print(f"  - 可用内存: {available_memory:.1f} GB")
 
-    # 选择执行模式
-    print("\n请选择执行模式:")
-    print("1. 单个优化任务")
-    print("2. 自动化批量执行（从任务队列.txt读取）")
+        # 读取系统常量
+        system_constants = read_system_constants("系统常量.txt")
 
-    mode_choice = input("\n请输入选择 [默认:1]: ").strip()
-    auto_mode = mode_choice == "2"
-
-    if auto_mode:
-        # 自动化执行模式
-        tasks = read_task_queue("任务队列.txt")
-        if not tasks:
-            print("未找到有效的任务队列，或任务队列为空，程序退出。")
-            return
-
-        print(f"\n找到 {len(tasks)} 个任务，准备开始执行...")
-
-        for task_idx, task in enumerate(tasks, 1):
-            print(f"\n\n执行任务 {task_idx}/{len(tasks)} - 支管 {task['zhiguan']}")
-            execute_optimization_task(task, auto_mode=True)
-
-        print("\n所有任务执行完成！")
-
-    else:
-        # 单个执行模式，解析命令行参数
-        parser = argparse.ArgumentParser(description='灌溉系统优化算法管理器')
-
-        # 梳齿布局参数
-        parser.add_argument('--nodes-shuzi', type=int, help='梳齿布局节点数量')
-        parser.add_argument('--lgz1-shuzi', type=int, help='梳齿布局轮灌组参数lgz1')
-        parser.add_argument('--lgz2-shuzi', type=int, help='梳齿布局轮灌组参数lgz2')
-
-        # 丰字布局参数
-        parser.add_argument('--nodes-fengzi', type=int, help='丰字布局节点数量')
-        parser.add_argument('--lgz1-fengzi', type=int, help='丰字布局轮灌组参数lgz1')
-        parser.add_argument('--lgz2-fengzi', type=int, help='丰字布局轮灌组参数lgz2')
-
-        # 通用参数
-        parser.add_argument('--rukoushuitou', type=float, help='入口水头压力(米)')
-        parser.add_argument('--zhiguan', type=int, help='支管编号')
-
-        # 执行选项
-        parser.add_argument('--sequential', action='store_true', help='顺序执行算法而不是并行执行')
-        parser.add_argument('--timeout', type=int, help='执行超时时间（秒，0表示不限时间）')
-        parser.add_argument('-n', '--no-interactive', action='store_true', help='不使用交互式输入，使用默认参数')
-
-        # 解析命令行参数
-        cmd_args = parser.parse_args()
-
-        # 检查是否需要交互式输入
-        if not cmd_args.no_interactive and (
-                cmd_args.nodes_shuzi is None or
-                cmd_args.lgz1_shuzi is None or
-                cmd_args.lgz2_shuzi is None or
-                cmd_args.nodes_fengzi is None or
-                cmd_args.lgz1_fengzi is None or
-                cmd_args.lgz2_fengzi is None or
-                cmd_args.rukoushuitou is None or
-                cmd_args.timeout is None or
-                cmd_args.zhiguan is None
-        ):
-            interactive_params = get_interactive_params()
+        # 检查命令行参数，确定是否为批处理模式
+        import sys
+        if len(sys.argv) > 1 and sys.argv[1] == "--batch":
+            # 直接进入批处理模式
+            auto_mode = True
         else:
-            interactive_params = {}
+            # 交互式选择执行模式
+            print("\n请选择执行模式:")
+            print("1. 单个优化任务")
+            print("2. 自动化批量执行（从任务队列.csv读取）")
 
-        # 设置参数值（命令行参数优先，然后是交互式输入，最后是默认值）
-        task = {}
-        task['zhiguan'] = cmd_args.zhiguan if cmd_args.zhiguan is not None else interactive_params.get('zhiguan', 1)
-        task['nodes_shuzi'] = cmd_args.nodes_shuzi if cmd_args.nodes_shuzi is not None else interactive_params.get(
-            'nodes_shuzi', 23)
-        task['lgz1_shuzi'] = cmd_args.lgz1_shuzi if cmd_args.lgz1_shuzi is not None else interactive_params.get(
-            'lgz1_shuzi', 6)
-        task['lgz2_shuzi'] = cmd_args.lgz2_shuzi if cmd_args.lgz2_shuzi is not None else interactive_params.get(
-            'lgz2_shuzi', 4)
-        task['nodes_fengzi'] = cmd_args.nodes_fengzi if cmd_args.nodes_fengzi is not None else interactive_params.get(
-            'nodes_fengzi', 32)
-        task['lgz1_fengzi'] = cmd_args.lgz1_fengzi if cmd_args.lgz1_fengzi is not None else interactive_params.get(
-            'lgz1_fengzi', 8)
-        task['lgz2_fengzi'] = cmd_args.lgz2_fengzi if cmd_args.lgz2_fengzi is not None else interactive_params.get(
-            'lgz2_fengzi', 2)
-        task['rukoushuitou'] = cmd_args.rukoushuitou if cmd_args.rukoushuitou is not None else interactive_params.get(
-            'rukoushuitou', 50)
-        task['sequential'] = cmd_args.sequential if cmd_args.sequential else interactive_params.get('sequential', False)
-        task['timeout'] = cmd_args.timeout if cmd_args.timeout is not None else interactive_params.get('timeout', 0)
+            try:
+                mode_choice = input("\n请输入选择 [默认:1]: ").strip()
+                auto_mode = mode_choice == "2"
+            except KeyboardInterrupt:
+                print("\n程序被用户中断")
+                return
 
-        # 执行单个任务
-        execute_optimization_task(task, auto_mode=False)
+        if auto_mode:
+            # 自动化执行模式
+            try:
+                tasks = read_task_queue("任务队列.csv")
+                if not tasks:
+                    # 尝试从txt文件读取
+                    tasks = read_task_queue_txt("任务队列.txt")
 
-    print("\n" + "=" * 60)
-    print("                  优化管理器执行完毕")
-    print("=" * 60)
+                if not tasks:
+                    print("未找到有效的任务队列，或任务队列为空，程序退出。")
+                    return
+
+                print(f"\n找到 {len(tasks)} 个任务，准备开始执行...")
+
+                for task_idx, task in enumerate(tasks, 1):
+                    print(f"\n\n执行任务 {task_idx}/{len(tasks)} - 支管 {task['zhiguan']}")
+
+                    # 确保任务中有frist_diameter参数，如果没有，使用默认值
+                    if 'frist_diameter' not in task:
+                        task['frist_diameter'] = 500
+                        print(f"  警告：任务缺少frist_diameter参数，使用默认值500")
+
+                    execute_optimization_task(task, system_constants, auto_mode=True)
+
+                print("\n所有任务执行完成！")
+            except Exception as e:
+                print(f"\n批处理执行过程中出错: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+
+        else:
+            # 单个执行模式，解析命令行参数
+            parser = argparse.ArgumentParser(description='灌溉系统优化算法管理器')
+
+            # 梳齿布局参数
+            parser.add_argument('--nodes-shuzi', type=int, help='梳齿布局节点数量')
+            parser.add_argument('--lgz1-shuzi', type=int, help='梳齿布局轮灌组参数lgz1')
+            parser.add_argument('--lgz2-shuzi', type=int, help='梳齿布局轮灌组参数lgz2')
+
+            # 丰字布局参数
+            parser.add_argument('--nodes-fengzi', type=int, help='丰字布局节点数量')
+            parser.add_argument('--lgz1-fengzi', type=int, help='丰字布局轮灌组参数lgz1')
+            parser.add_argument('--lgz2-fengzi', type=int, help='丰字布局轮灌组参数lgz2')
+
+            # 通用参数
+            parser.add_argument('--frist_pressure', type=float, help='入口水头压力(米)')
+            parser.add_argument('--frist-diameter', type=int, help='管径直径(mm)', default=500)
+            parser.add_argument('--zhiguan', type=int, help='支管编号')
+
+            # 执行选项
+            parser.add_argument('--sequential', action='store_true', help='顺序执行算法而不是并行执行')
+            parser.add_argument('--timeout', type=int, help='执行超时时间（秒，0表示不限时间）')
+            parser.add_argument('-n', '--no-interactive', action='store_true', help='不使用交互式输入，使用默认参数')
+
+            # 解析命令行参数
+            cmd_args = parser.parse_args()
+
+            # 检查是否需要交互式输入
+            if not cmd_args.no_interactive and (
+                    cmd_args.nodes_shuzi is None or
+                    cmd_args.lgz1_shuzi is None or
+                    cmd_args.lgz2_shuzi is None or
+                    cmd_args.nodes_fengzi is None or
+                    cmd_args.lgz1_fengzi is None or
+                    cmd_args.lgz2_fengzi is None or
+                    cmd_args.frist_pressure is None or
+                    cmd_args.timeout is None or
+                    cmd_args.zhiguan is None
+            ):
+                try:
+                    interactive_params = get_interactive_params()
+                except KeyboardInterrupt:
+                    print("\n程序被用户中断")
+                    return
+            else:
+                interactive_params = {}
+
+            # 设置参数值（命令行参数优先，然后是交互式输入，最后是默认值）
+            task = {}
+            task['zhiguan'] = cmd_args.zhiguan if cmd_args.zhiguan is not None else interactive_params.get('zhiguan', 1)
+            task['nodes_shuzi'] = cmd_args.nodes_shuzi if cmd_args.nodes_shuzi is not None else interactive_params.get(
+                'nodes_shuzi', 23)
+            task['lgz1_shuzi'] = cmd_args.lgz1_shuzi if cmd_args.lgz1_shuzi is not None else interactive_params.get(
+                'lgz1_shuzi', 6)
+            task['lgz2_shuzi'] = cmd_args.lgz2_shuzi if cmd_args.lgz2_shuzi is not None else interactive_params.get(
+                'lgz2_shuzi', 4)
+            task[
+                'nodes_fengzi'] = cmd_args.nodes_fengzi if cmd_args.nodes_fengzi is not None else interactive_params.get(
+                'nodes_fengzi', 32)
+            task['lgz1_fengzi'] = cmd_args.lgz1_fengzi if cmd_args.lgz1_fengzi is not None else interactive_params.get(
+                'lgz1_fengzi', 8)
+            task['lgz2_fengzi'] = cmd_args.lgz2_fengzi if cmd_args.lgz2_fengzi is not None else interactive_params.get(
+                'lgz2_fengzi', 2)
+            task[
+                'frist_pressure'] = cmd_args.frist_pressure if cmd_args.frist_pressure is not None else interactive_params.get(
+                'frist_pressure', 50)
+            task[
+                'frist_diameter'] = cmd_args.frist_diameter if cmd_args.frist_diameter is not None else interactive_params.get(
+                'frist_diameter', 500)
+            task['sequential'] = cmd_args.sequential if cmd_args.sequential else interactive_params.get('sequential',
+                                                                                                        False)
+            task['timeout'] = cmd_args.timeout if cmd_args.timeout is not None else interactive_params.get('timeout', 0)
+
+            # 执行单个任务
+            execute_optimization_task(task, system_constants, auto_mode=False)
+
+        print("\n" + "=" * 60)
+        print("                  优化管理器执行完毕")
+        print("=" * 60)
+
+    except KeyboardInterrupt:
+        print("\n程序被用户中断，正在退出...")
+    except Exception as e:
+        print(f"\n程序执行过程中出错: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
 
 
 if __name__ == "__main__":
