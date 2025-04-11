@@ -1326,10 +1326,10 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
                                             len(irrigation_system.submains) - 1:]
 
         # 更新干管管径（确保管径递减）
-        prev_diameter = None
+        prev_diameter = irrigation_system.main_pipe[0]["diameter"]
         for i, index in enumerate(main_indices, start=1):
             available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
-                                   if prev_diameter is None or d <= prev_diameter]
+                                   if d <= prev_diameter]  # 确保管径不大于前一段
             if not available_diameters:
                 return
 
@@ -1536,10 +1536,10 @@ def update_pipe_diameters(irrigation_system, individual):
                                         len(irrigation_system.submains) - 1:]
 
     # 更新干管管径（确保管径递减）
-    prev_diameter = None
+    prev_diameter = irrigation_system.main_pipe[0]["diameter"]
     for i, index in enumerate(main_indices, start=1):
         available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
-                               if prev_diameter is None or d <= prev_diameter]
+                               if d <= prev_diameter]  # 确保管径不大于前一段
         if not available_diameters:
             return
 
@@ -1973,5 +1973,5 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
-    main(23, 49.62, 500, 8, 4, 100, 50, True, True)
+    main(23, 49.62, 450, 8, 4, 100, 50, True, True)
     # main_batch(23, 49.62, 500, 8, 4, 100, 50, False, True)

@@ -1187,10 +1187,10 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, swarm_size, max_
                                             len(irrigation_system.submains) - 1:]
 
         # 更新干管管径（确保管径递减）
-        prev_diameter = None
+        prev_diameter = irrigation_system.main_pipe[0]["diameter"]
         for i, index in enumerate(main_indices, start=1):
             available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
-                                   if prev_diameter is None or d <= prev_diameter]
+                                   if d <= prev_diameter]  # 修改：移除了is None条件判断
             if not available_diameters:
                 return
 
@@ -1314,10 +1314,10 @@ def update_pipe_diameters(irrigation_system, individual):
                                         len(irrigation_system.submains) - 1:]
 
     # 更新干管管径（确保管径递减）
-    prev_diameter = None
+    prev_diameter = irrigation_system.main_pipe[0]["diameter"]
     for i, index in enumerate(main_indices, start=1):
         available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
-                               if prev_diameter is None or d <= prev_diameter]
+                               if d <= prev_diameter]  # 修改：移除了is None条件判断
         if not available_diameters:
             return
 
