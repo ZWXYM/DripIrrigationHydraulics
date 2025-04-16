@@ -604,7 +604,7 @@ class NSGAII:
                 individual['objectives'] = np.array(self.problem.evaluate(individual['x']))
 
     def _fast_non_dominated_sort(self, population):
-        """快速非支配排序"""
+        """快速非支配排序 - 改进版"""
         # 初始化
         fronts = [[]]  # 存储不同等级的前沿
         for p in population:
@@ -626,17 +626,26 @@ class NSGAII:
         # 生成其他前沿
         i = 0
         # 修复：添加边界检查确保i不会超出fronts的范围
-        while i < len(fronts) and fronts[i]:
+        while i < len(fronts):
             next_front = []
+
+            if not fronts[i]:  # 如果当前前沿为空，跳过
+                i += 1
+                continue
+
             for p in fronts[i]:
                 for q in p['dominated_solutions']:
                     q['domination_count'] -= 1
                     if q['domination_count'] == 0:
                         q['rank'] = i + 1
                         next_front.append(q)
+
             i += 1
             if next_front:
                 fronts.append(next_front)
+
+        # 移除空前沿
+        fronts = [front for front in fronts if front]
 
         return fronts
 
@@ -686,8 +695,12 @@ class NSGAII:
         return selected
 
     def _crossover_and_mutation(self, parents):
-        """交叉和变异"""
+        """交叉和变异 - 改进版"""
         offspring = []
+
+        # 检测问题类型
+        problem_name = self.problem.name if hasattr(self.problem, 'name') else 'Unknown'
+        is_zdt4 = 'ZDT4' in problem_name
 
         # 确保进行偶数次交叉
         for i in range(0, len(parents), 2):
@@ -699,6 +712,11 @@ class NSGAII:
                 # SBX交叉
                 if random.random() < 0.9:
                     eta = 15  # 分布指数
+
+                    # 针对ZDT4调整交叉参数
+                    if is_zdt4:
+                        eta = 20  # 更大的值意味着子代更接近父代
+
                     for j in range(self.problem.n_var):
                         if random.random() < 0.5:
                             # 确保x1 <= x2
@@ -733,8 +751,19 @@ class NSGAII:
                 for p in [p1, p2]:
                     if random.random() < 0.1:
                         for j in range(self.problem.n_var):
-                            if random.random() < 1.0 / self.problem.n_var:
+                            # 调整变异策略，ZDT4问题需要更少的变异以保持稳定性
+                            mutation_prob = 1.0 / self.problem.n_var
+                            if is_zdt4:
+                                # 第一个变量需要更少的变异（ZDT4中第一个变量在0-1范围内）
+                                mutation_prob = 0.5 / self.problem.n_var if j == 0 else 1.0 / self.problem.n_var
+
+                            if random.random() < mutation_prob:
                                 eta_m = 20  # 变异分布指数
+
+                                # 对ZDT4的其他变量使用较小的变异强度
+                                if is_zdt4 and j > 0:
+                                    eta_m = 25  # 更大的值意味着变异更接近原值
+
                                 delta1 = (p['x'][j] - self.problem.xl[j]) / (self.problem.xu[j] - self.problem.xl[j])
                                 delta2 = (self.problem.xu[j] - p['x'][j]) / (self.problem.xu[j] - self.problem.xl[j])
 
@@ -750,6 +779,10 @@ class NSGAII:
                                     xy = 1.0 - delta2
                                     val = 2.0 * (1.0 - rnd) + 2.0 * (rnd - 0.5) * (xy ** (eta_m + 1.0))
                                     delta_q = 1.0 - val ** mut_pow
+
+                                # 对ZDT4问题，限制变异量
+                                if is_zdt4:
+                                    delta_q = delta_q * 0.8  # 减小变异幅度
 
                                 p['x'][j] += delta_q * (self.problem.xu[j] - self.problem.xl[j])
                                 p['x'][j] = max(self.problem.xl[j], min(self.problem.xu[j], p['x'][j]))
@@ -1671,20 +1704,36 @@ class ImprovedExperimentFramework:
         rcParams['savefig.dpi'] = 300
 
     def _progress_monitor(self, total_tasks):
-        """进度监控线程函数"""
+        """进度监控线程函数 - 改进版"""
         with tqdm(total=total_tasks, desc="总体进度") as pbar:
             completed = 0
+            last_update_time = time.time()
+
             while completed < total_tasks:
                 try:
-                    # 非阻塞方式获取任务完成信息
-                    task_info = self.progress_queue.get(timeout=1)
+                    # 非阻塞方式获取任务完成信息，超时设置更短
+                    task_info = self.progress_queue.get(timeout=0.5)
                     completed += 1
                     pbar.update(1)
+
+                    # 更新描述信息
                     if 'message' in task_info:
                         pbar.set_description(f"进度: {task_info['message']}")
-                except:
-                    # 超时后继续循环
+
+                    # 记录更新时间
+                    last_update_time = time.time()
+
+                except Exception as e:
+                    # 超时检查 - 如果长时间(>30秒)没有更新，显示等待信息
+                    current_time = time.time()
+                    if current_time - last_update_time > 30:
+                        pbar.set_description(f"进度: 等待计算完成...已完成{completed}/{total_tasks}")
+                        time.sleep(0.5)  # 减少CPU使用
                     continue
+
+            # 确保进度条显示100%
+            pbar.n = total_tasks
+            pbar.refresh()
 
     def _run_algorithm_with_retry(self, algorithm_class, problem, params, run, metrics, algorithm_name):
         """运行算法并在失败时重试"""
@@ -1767,7 +1816,7 @@ class ImprovedExperimentFramework:
     def run_experiment(self, problems, algorithms, algorithm_params, metrics=['sp', 'igd', 'hv'],
                        n_runs=10, results_dir='results', use_multiprocessing=True, max_workers=None):
         """
-        运行实验
+        运行实验 - 改进版
         problems: 优化问题列表
         algorithms: 算法列表
         algorithm_params: 算法参数字典
@@ -1791,11 +1840,23 @@ class ImprovedExperimentFramework:
         if not os.path.exists(runs_dir):
             os.makedirs(runs_dir)
 
-        # 存储结果
-        all_results = {}
-
         # 计算总任务数量用于进度条
         total_tasks = len(problems) * len(algorithms) * n_runs
+
+        # 创建结果字典提前初始化所有项
+        all_results = {}
+        for problem in problems:
+            problem_name = problem.name
+            all_results[problem_name] = {}
+            for algorithm_class in algorithms:
+                algorithm_name = algorithm_class.__name__
+                all_results[problem_name][algorithm_name] = {
+                    'metrics': {metric: [] for metric in metrics},
+                    'pareto_fronts': [],
+                    'runtimes': [],
+                    'success_rate': 0,
+                    'attempts': []
+                }
 
         # 启动进度监控线程
         progress_thread = threading.Thread(target=self._progress_monitor, args=(total_tasks,))
@@ -1807,9 +1868,6 @@ class ImprovedExperimentFramework:
             problem_name = problem.name
             self.logger.info(f"运行问题: {problem_name}")
 
-            # 存储该问题的结果
-            all_results[problem_name] = {}
-
             # 对每个算法
             for algorithm_class in algorithms:
                 algorithm_name = algorithm_class.__name__
@@ -1817,15 +1875,6 @@ class ImprovedExperimentFramework:
 
                 # 获取算法参数
                 params = algorithm_params.get(algorithm_name, {})
-
-                # 存储该算法的结果
-                all_results[problem_name][algorithm_name] = {
-                    'metrics': {metric: [] for metric in metrics},
-                    'pareto_fronts': [],
-                    'runtimes': [],
-                    'success_rate': 0,
-                    'attempts': []
-                }
 
                 # 定义任务列表
                 tasks = []
@@ -1840,11 +1889,15 @@ class ImprovedExperimentFramework:
                         futures = [executor.submit(self._run_algorithm_with_retry, *task) for task in tasks]
                         for future in concurrent.futures.as_completed(futures):
                             results.append(future.result())
+                            # 确保进度队列不会被阻塞
+                            time.sleep(0.01)
                 else:
                     # 单进程模式
                     for task in tasks:
                         result = self._run_algorithm_with_retry(*task)
                         results.append(result)
+                        # 手动更新进度
+                        self.progress_queue.put({'message': f"{problem.name} - {task[5]} 运行 {task[3] + 1} 完成"})
 
                 # 处理结果
                 success_count = 0
@@ -1896,6 +1949,10 @@ class ImprovedExperimentFramework:
 
         # 生成统计报告
         self._generate_stats_report(all_results, metrics, os.path.join(results_dir, "statistics.txt"))
+
+        # 确保所有任务完成后发送最终的进度更新
+        for _ in range(5):  # 多发送几个确保接收
+            self.progress_queue.put({'message': "所有任务完成"})
 
         # 等待进度条线程结束
         if progress_thread.is_alive():
@@ -2938,7 +2995,7 @@ def main():
 
     # 设置运行参数
     n_runs = 5
-    max_workers = min(os.cpu_count() - 1, 4)  # 避免使用所有CPU核心
+    max_workers = min(os.cpu_count() - 1, 8)  # 避免使用所有CPU核心
 
     print(f"实验配置: 运行次数={n_runs}, 最大工作进程数={max_workers}")
     print("\n开始运行实验...")
