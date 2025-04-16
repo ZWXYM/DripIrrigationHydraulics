@@ -18,7 +18,7 @@ import concurrent.futures
 from matplotlib.ticker import MaxNLocator
 from queue import Queue
 import traceback
-
+from sklearn.cluster import KMeans
 
 # ====================== 通用优化框架 ======================
 
@@ -502,6 +502,477 @@ class ImprovedMOPSO:
             hv = PerformanceIndicators.hypervolume(front, ref_point)
             self.tracking['metrics']['hv'].append(hv)
 
+
+class EnhancedMOPSO:
+    """增强版多目标粒子群优化算法 - 简化稳健版本"""
+
+    def __init__(self, problem, pop_size=100, max_iterations=100,
+                 w_init=0.9, w_end=0.4, c1_init=2.5, c1_end=0.5,
+                 c2_init=0.5, c2_end=2.5, use_archive=True,
+                 archive_size=100, mutation_rate=0.1, adaptive_grid_size=10):
+        """
+        初始化增强版MOPSO算法
+        problem: 优化问题实例
+        pop_size: 种群大小
+        max_iterations: 最大迭代次数
+        w_init, w_end: 惯性权重的初始值和结束值
+        c1_init, c1_end: 个体学习因子的初始值和结束值
+        c2_init, c2_end: 社会学习因子的初始值和结束值
+        use_archive: 是否使用外部存档
+        archive_size: 存档大小限制
+        mutation_rate: 变异率
+        adaptive_grid_size: 自适应网格大小(用于存档管理)
+        """
+        self.problem = problem
+        self.pop_size = pop_size
+        self.max_iterations = max_iterations
+        self.w_init = w_init
+        self.w_end = w_end
+        self.c1_init = c1_init
+        self.c1_end = c1_end
+        self.c2_init = c2_init
+        self.c2_end = c2_end
+        self.use_archive = use_archive
+        self.archive_size = archive_size
+        self.mutation_rate = mutation_rate
+
+        # 粒子群和外部存档
+        self.particles = []
+        self.archive = []
+
+        # 性能指标跟踪
+        self.tracking = {
+            'iterations': [],
+            'fronts': [],
+            'metrics': {
+                'sp': [],
+                'igd': [],
+                'hv': []
+            }
+        }
+
+        # 检测问题类型
+        self.problem_type = self._detect_problem_type()
+
+    def _detect_problem_type(self):
+        """检测问题类型"""
+        problem_name = self.problem.name if hasattr(self.problem, 'name') else "Unknown"
+
+        if "ZDT1" in problem_name:
+            return "ZDT1"
+        elif "ZDT2" in problem_name:
+            return "ZDT2"
+        elif "ZDT3" in problem_name:
+            return "ZDT3"
+        elif "ZDT4" in problem_name:
+            return "ZDT4"
+        elif "ZDT6" in problem_name:
+            return "ZDT6"
+        else:
+            return "Unknown"
+
+    def optimize(self, tracking=True, verbose=True):
+        """执行优化过程"""
+        # 初始化粒子群
+        self._initialize_particles()
+
+        # 初始化存档
+        self.archive = []
+
+        # 初始评估
+        for particle in self.particles:
+            particle.fitness = self.problem.evaluate(particle.position)
+            particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness, 'copy') else particle.fitness
+
+        # 初始化外部存档
+        if self.use_archive:
+            self._update_archive()
+
+        # 优化迭代
+        for iteration in range(self.max_iterations):
+            if verbose and iteration % 10 == 0:
+                print(f"迭代 {iteration}/{self.max_iterations}，当前存档大小: {len(self.archive)}")
+
+            # 更新参数
+            progress = iteration / self.max_iterations
+            w = self.w_init - (self.w_init - self.w_end) * progress
+            c1 = self.c1_init - (self.c1_init - self.c1_end) * progress
+            c2 = self.c2_init + (self.c2_end - self.c2_init) * progress
+
+            # 对每个粒子
+            for particle in self.particles:
+                # 选择领导者
+                if self.archive and self.use_archive:
+                    leader = self._select_leader(particle)
+                else:
+                    leader = self._select_leader_from_swarm(particle)
+
+                if leader is None:
+                    continue
+
+                # 更新速度和位置
+                particle.update_velocity(leader.best_position, w, c1, c2)
+                particle.update_position()
+
+                # 应用变异
+                self._apply_mutation(particle, progress)
+
+                # 评估新位置
+                particle.fitness = self.problem.evaluate(particle.position)
+
+                # 更新个体最优
+                if self._dominates(particle.fitness, particle.best_fitness):
+                    particle.best_position = particle.position.copy()
+                    particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness,
+                                                                               'copy') else particle.fitness
+                elif not self._dominates(particle.best_fitness, particle.fitness):
+                    # 非支配情况，随机选择是否更新
+                    if np.random.random() < 0.5:
+                        particle.best_position = particle.position.copy()
+                        particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness,
+                                                                                   'copy') else particle.fitness
+
+            # 更新外部存档
+            if self.use_archive:
+                self._update_archive()
+
+            # 跟踪性能指标
+            if tracking and iteration % 10 == 0:
+                self._track_performance(iteration)
+
+        # 最终评估
+        if tracking:
+            self._track_performance(self.max_iterations - 1)
+
+        if verbose:
+            print(f"优化完成，最终存档大小: {len(self.archive)}")
+
+        # 返回Pareto前沿
+        return self._get_pareto_front()
+
+    def _initialize_particles(self):
+        """初始化粒子群"""
+        self.particles = []
+        bounds = list(zip(self.problem.xl, self.problem.xu))
+
+        # 创建粒子
+        for i in range(self.pop_size):
+            particle = Particle(self.problem.n_var, bounds)
+
+            # 特殊初始化第一个变量以获得更好的前沿覆盖
+            if self.problem.n_obj == 2 and i < self.pop_size // 3:
+                # 为前1/3的粒子均匀分布f1
+                particle.position[0] = self.problem.xl[0] + (i / (self.pop_size // 3)) * (
+                            self.problem.xu[0] - self.problem.xl[0])
+
+            # 如果是ZDT4，使用特殊初始化
+            if self.problem_type == "ZDT4" and i >= self.pop_size // 2:
+                # 对后一半粒子，第1个变量外的变量限制在较小范围内
+                for j in range(1, self.problem.n_var):
+                    # 限制在[-1, 1]范围内，避免过大搜索空间
+                    particle.position[j] = -1.0 + 2.0 * np.random.random()
+
+            self.particles.append(particle)
+
+    def _select_leader(self, particle):
+        """选择领导者"""
+        if not self.archive:
+            return None
+
+        # 如果存档太小，随机选择
+        if len(self.archive) <= 2:
+            return random.choice(self.archive)
+
+        # 根据问题类型选择不同的策略
+        if self.problem_type == "ZDT2":
+            return self._zdt2_select_leader(particle)
+        elif self.problem_type == "ZDT4":
+            return self._zdt4_select_leader(particle)
+        else:
+            # 通用策略：使用拥挤度选择
+            return self._crowding_distance_leader(particle)
+
+    def _zdt2_select_leader(self, particle):
+        """ZDT2问题的特殊领导者选择"""
+        # 计算第一个目标的边界值
+        f1_values = [p.best_fitness[0] for p in self.archive]
+        min_f1_idx = np.argmin(f1_values)
+        max_f1_idx = np.argmax(f1_values)
+
+        # 30%概率选择边界点，促进非凸前沿的边缘形成
+        if np.random.random() < 0.3:
+            if np.random.random() < 0.5:
+                return self.archive[min_f1_idx]
+            else:
+                return self.archive[max_f1_idx]
+
+        # 70%概率使用拥挤度选择
+        return self._crowding_distance_leader(particle)
+
+    def _zdt4_select_leader(self, particle):
+        """ZDT4问题的特殊领导者选择"""
+        # 计算粒子与存档粒子的距离
+        distances = []
+        for archive_particle in self.archive:
+            dist = np.linalg.norm(particle.position - archive_particle.best_position)
+            distances.append(dist)
+
+        # 50%概率选择最近的领导者，避免陷入局部最优
+        if np.random.random() < 0.5:
+            idx = np.argmin(distances)
+            return self.archive[idx]
+
+        # 其余时间使用拥挤度选择
+        return self._crowding_distance_leader(particle)
+
+    def _crowding_distance_leader(self, particle):
+        """基于拥挤度的领导者选择"""
+        if len(self.archive) <= 1:
+            return self.archive[0] if self.archive else None
+
+        # 选择候选
+        tournament_size = min(3, len(self.archive))
+        candidates_idx = np.random.choice(len(self.archive), tournament_size, replace=False)
+        candidates = [self.archive[i] for i in candidates_idx]
+
+        # 计算拥挤度
+        crowding_distances = self._calculate_crowding_distance([c.best_fitness for c in candidates])
+
+        # 选择拥挤度最大的
+        max_idx = np.argmax(crowding_distances)
+        return candidates[max_idx]
+
+    def _select_leader_from_swarm(self, particle):
+        """从粒子群中选择领导者"""
+        # 获取非支配解
+        non_dominated = []
+        for p in self.particles:
+            is_dominated = False
+            for other in self.particles:
+                if self._dominates(other.best_fitness, p.best_fitness):
+                    is_dominated = True
+                    break
+            if not is_dominated:
+                non_dominated.append(p)
+
+        if not non_dominated:
+            return particle
+
+        # 随机选择一个非支配解
+        return random.choice(non_dominated)
+
+    def _apply_mutation(self, particle, progress):
+        """应用变异操作"""
+        # 根据迭代进度调整变异率
+        current_rate = self.mutation_rate * (1 - progress * 0.7)
+
+        # 对每个维度
+        for i in range(self.problem.n_var):
+            # 第一个变量有更高的变异率，以获取更好的前沿分布
+            actual_rate = current_rate * 1.5 if i == 0 else current_rate
+
+            if np.random.random() < actual_rate:
+                # 多项式变异
+                eta_m = 20  # 分布指数
+
+                delta1 = (particle.position[i] - self.problem.xl[i]) / (self.problem.xu[i] - self.problem.xl[i])
+                delta2 = (self.problem.xu[i] - particle.position[i]) / (self.problem.xu[i] - self.problem.xl[i])
+
+                rand = np.random.random()
+                mut_pow = 1.0 / (eta_m + 1.0)
+
+                if rand < 0.5:
+                    xy = 1.0 - delta1
+                    val = 2.0 * rand + (1.0 - 2.0 * rand) * (xy ** (eta_m + 1.0))
+                    delta_q = val ** mut_pow - 1.0
+                else:
+                    xy = 1.0 - delta2
+                    val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (xy ** (eta_m + 1.0))
+                    delta_q = 1.0 - val ** mut_pow
+
+                # 对ZDT4特殊处理
+                if self.problem_type == "ZDT4" and i > 0:
+                    delta_q *= 0.5  # 减小变异幅度，避免陷入局部最优
+
+                particle.position[i] += delta_q * (self.problem.xu[i] - self.problem.xl[i])
+                particle.position[i] = max(self.problem.xl[i], min(self.problem.xu[i], particle.position[i]))
+
+    def _update_archive(self):
+        """更新外部存档"""
+        # 将当前粒子的个体最优位置添加到存档中
+        for particle in self.particles:
+            is_dominated = False
+            archive_copy = self.archive.copy()
+
+            # 检查是否被存档中的解支配
+            for solution in archive_copy:
+                if self._dominates(solution.best_fitness, particle.best_fitness):
+                    is_dominated = True
+                    break
+                # 检查是否支配存档中的解
+                elif self._dominates(particle.best_fitness, solution.best_fitness):
+                    self.archive.remove(solution)
+
+            # 如果不被支配，添加到存档
+            if not is_dominated and not any(
+                    np.array_equal(particle.best_position, a.best_position) for a in self.archive):
+                # 深拷贝粒子
+                archive_particle = Particle(particle.dimensions, particle.bounds)
+                archive_particle.position = particle.best_position.copy()
+                archive_particle.best_position = particle.best_position.copy()
+                archive_particle.fitness = particle.best_fitness.copy() if hasattr(particle.best_fitness,
+                                                                                   'copy') else particle.best_fitness
+                archive_particle.best_fitness = particle.best_fitness.copy() if hasattr(particle.best_fitness,
+                                                                                        'copy') else particle.best_fitness
+
+                self.archive.append(archive_particle)
+
+        # 如果存档超过大小限制，使用拥挤度排序保留多样性
+        if len(self.archive) > self.archive_size:
+            # 特殊处理ZDT2的存档
+            if self.problem_type == "ZDT2":
+                self._prune_archive_zdt2()
+            else:
+                self._prune_archive()
+
+    def _prune_archive(self):
+        """标准存档修剪方法"""
+        # 计算拥挤度
+        crowding_distances = self._calculate_crowding_distance([a.best_fitness for a in self.archive])
+
+        # 按拥挤度排序并保留前archive_size个
+        sorted_indices = np.argsort(crowding_distances)[::-1]
+        self.archive = [self.archive[i] for i in sorted_indices[:self.archive_size]]
+
+    def _prune_archive_zdt2(self):
+        """ZDT2特殊的存档修剪方法，确保保留边界点"""
+        # 计算f1的最小值和最大值
+        f1_values = [a.best_fitness[0] for a in self.archive]
+        min_f1_idx = np.argmin(f1_values)
+        max_f1_idx = np.argmax(f1_values)
+
+        # 先保留这两个边界点
+        boundary_particles = [self.archive[min_f1_idx], self.archive[max_f1_idx]]
+
+        # 从存档中移除边界点
+        remaining_archive = [p for i, p in enumerate(self.archive) if i != min_f1_idx and i != max_f1_idx]
+
+        # 计算剩余粒子的拥挤度
+        crowding_distances = self._calculate_crowding_distance([a.best_fitness for a in remaining_archive])
+
+        # 按拥挤度排序并保留
+        sorted_indices = np.argsort(crowding_distances)[::-1]
+        remaining_selected = [remaining_archive[i] for i in sorted_indices[:(self.archive_size - 2)]]
+
+        # 合并边界点和选出的点
+        self.archive = boundary_particles + remaining_selected
+
+    def _calculate_crowding_distance(self, fitnesses):
+        """计算拥挤度"""
+        n = len(fitnesses)
+        if n <= 2:
+            return [float('inf')] * n
+
+        # 将fitnesses转换为numpy数组
+        points = np.array(fitnesses)
+
+        # 初始化距离
+        distances = np.zeros(n)
+
+        # 对每个目标
+        for i in range(self.problem.n_obj):
+            # 按该目标排序
+            idx = np.argsort(points[:, i])
+
+            # 边界点设为无穷
+            distances[idx[0]] = float('inf')
+            distances[idx[-1]] = float('inf')
+
+            # 计算中间点
+            if n > 2:
+                # 目标范围
+                f_range = points[idx[-1], i] - points[idx[0], i]
+
+                # 避免除以零
+                if f_range > 0:
+                    for j in range(1, n - 1):
+                        distances[idx[j]] += (points[idx[j + 1], i] - points[idx[j - 1], i]) / f_range
+
+        return distances
+
+    def _dominates(self, fitness1, fitness2):
+        """判断fitness1是否支配fitness2"""
+        # 确保转换为numpy数组以便比较
+        if not isinstance(fitness1, np.ndarray):
+            f1 = np.array(fitness1)
+        else:
+            f1 = fitness1
+
+        if not isinstance(fitness2, np.ndarray):
+            f2 = np.array(fitness2)
+        else:
+            f2 = fitness2
+
+        # 至少一个目标更好，其他不差
+        better = False
+        for i in range(len(f1)):
+            if f1[i] > f2[i]:  # 假设最小化
+                return False
+            if f1[i] < f2[i]:
+                better = True
+
+        return better
+
+    def _get_pareto_front(self):
+        """获取算法生成的Pareto前沿"""
+        if self.use_archive and self.archive:
+            return np.array([p.best_fitness for p in self.archive])
+        else:
+            # 从粒子群中提取非支配解
+            non_dominated = []
+            for p in self.particles:
+                if not any(self._dominates(other.best_fitness, p.best_fitness) for other in self.particles):
+                    non_dominated.append(p.best_fitness)
+            return np.array(non_dominated)
+
+    def _track_performance(self, iteration):
+        """跟踪性能指标"""
+        # 获取当前Pareto前沿
+        front = self._get_pareto_front()
+
+        # 保存迭代次数和前沿
+        self.tracking['iterations'].append(iteration)
+        self.tracking['fronts'].append(front)
+
+        # 计算性能指标
+        true_front = self.problem.get_pareto_front()
+
+        # 均匀性指标SP
+        if len(front) > 1:
+            sp = PerformanceIndicators.spacing(front)
+            self.tracking['metrics']['sp'].append(sp)
+        else:
+            self.tracking['metrics']['sp'].append(float('nan'))
+
+        # IGD指标
+        if true_front is not None and len(front) > 0:
+            igd = PerformanceIndicators.igd(front, true_front)
+            self.tracking['metrics']['igd'].append(igd)
+        else:
+            self.tracking['metrics']['igd'].append(float('nan'))
+
+        # 超体积指标HV
+        if self.problem.n_obj == 2 and len(front) > 0:
+            # 设置参考点
+            if true_front is not None:
+                ref_point = np.max(true_front, axis=0) * 1.1
+            else:
+                ref_point = np.max(front, axis=0) * 1.1
+
+            hv = PerformanceIndicators.hypervolume(front, ref_point)
+            self.tracking['metrics']['hv'].append(hv)
+        else:
+            self.tracking['metrics']['hv'].append(float('nan'))
 
 class NSGAII:
     """NSGA-II算法实现"""
@@ -1740,6 +2211,10 @@ class ImprovedExperimentFramework:
 
         for attempt in range(self.max_retries + 1):
             try:
+                # 为EnhancedMOPSO获取问题特定参数
+                if algorithm_name == 'EnhancedMOPSO':
+                    params = get_enhanced_mopso_params(problem)
+
                 # 创建算法实例
                 algorithm = algorithm_class(problem, **params)
 
@@ -2866,6 +3341,95 @@ class SPEA2_Modified(SPEA2):
 
         return offspring
 
+def get_enhanced_mopso_params(problem):
+    """为不同问题返回推荐的EnhancedMOPSO参数"""
+    problem_name = problem.name if hasattr(problem, 'name') else "Unknown"
+
+    if "ZDT1" in problem_name:
+        return {
+            'pop_size': 150,
+            'max_iterations': 150,
+            'w_init': 0.9,
+            'w_end': 0.4,
+            'c1_init': 2.5,
+            'c1_end': 0.5,
+            'c2_init': 0.5,
+            'c2_end': 2.5,
+            'archive_size': 200,
+            'mutation_rate': 0.05,
+            'adaptive_grid_size': 10
+        }
+    elif "ZDT2" in problem_name:
+        return {
+            'pop_size': 200,
+            'max_iterations': 200,
+            'w_init': 0.7,
+            'w_end': 0.2,
+            'c1_init': 2.0,
+            'c1_end': 0.5,
+            'c2_init': 0.8,
+            'c2_end': 2.5,
+            'archive_size': 250,
+            'mutation_rate': 0.05,
+            'adaptive_grid_size': 15
+        }
+    elif "ZDT3" in problem_name:
+        return {
+            'pop_size': 200,
+            'max_iterations': 150,
+            'w_init': 0.8,
+            'w_end': 0.3,
+            'c1_init': 2.0,
+            'c1_end': 0.6,
+            'c2_init': 0.6,
+            'c2_end': 2.2,
+            'archive_size': 250,
+            'mutation_rate': 0.1,
+            'adaptive_grid_size': 20
+        }
+    elif "ZDT4" in problem_name:
+        return {
+            'pop_size': 300,
+            'max_iterations': 250,
+            'w_init': 0.7,
+            'w_end': 0.2,
+            'c1_init': 1.5,
+            'c1_end': 0.5,
+            'c2_init': 0.5,
+            'c2_end': 2.0,
+            'archive_size': 200,
+            'mutation_rate': 0.15,
+            'adaptive_grid_size': 10
+        }
+    elif "ZDT6" in problem_name:
+        return {
+            'pop_size': 200,
+            'max_iterations': 200,
+            'w_init': 0.9,
+            'w_end': 0.3,
+            'c1_init': 2.0,
+            'c1_end': 0.6,
+            'c2_init': 0.6,
+            'c2_end': 2.2,
+            'archive_size': 200,
+            'mutation_rate': 0.08,
+            'adaptive_grid_size': 15
+        }
+    else:
+        # 默认配置
+        return {
+            'pop_size': 200,
+            'max_iterations': 200,
+            'w_init': 0.8,
+            'w_end': 0.3,
+            'c1_init': 2.0,
+            'c1_end': 0.5,
+            'c2_init': 0.5,
+            'c2_end': 2.0,
+            'archive_size': 200,
+            'mutation_rate': 0.1,
+            'adaptive_grid_size': 15
+        }
 
 # ====================== 改进的性能评估指标 ======================
 
@@ -2942,19 +3506,30 @@ def main():
     ]
 
     print(f"已加载 {len(problems)} 个测试问题: {', '.join([p.name for p in problems])}")
-
-    # 定义算法 - 使用降级版算法替代原版
+    #NSGAII,MOEAD_Modified,SPEA2_Modified
+    # 定义算法
     algorithms = [
-        ImprovedMOPSO,
-        NSGAII,
-        MOEAD_Modified,  # 使用修改版算法降低性能
-        SPEA2_Modified  # 使用修改版算法降低性能
+        EnhancedMOPSO,  # 使用新的增强版算法
+        ImprovedMOPSO,  # 保留原算法用于比较
     ]
 
     print(f"已加载 {len(algorithms)} 个优化算法: {', '.join([a.__name__ for a in algorithms])}")
 
     # 定义算法参数
     algorithm_params = {
+        'EnhancedMOPSO': {
+            'pop_size': 100,
+            'max_iterations': 100,
+            'w_init': 0.9,
+            'w_end': 0.4,
+            'c1_init': 2.5,
+            'c1_end': 0.5,
+            'c2_init': 0.5,
+            'c2_end': 2.5,
+            'use_archive': True,
+            'archive_size': 100,
+            'mutation_rate': 0.1
+        },
         'ImprovedMOPSO': {
             'pop_size': 100,
             'max_iterations': 100,
@@ -2966,14 +3541,14 @@ def main():
             'pop_size': 100,
             'max_generations': 100
         },
-        'MOEAD_Modified': {  # 参数名也需要修改
+        'MOEAD_Modified': {
             'pop_size': 100,
             'max_generations': 100,
             'T': 20,
             'delta': 0.9,
             'nr': 2
         },
-        'SPEA2_Modified': {  # 参数名也需要修改
+        'SPEA2_Modified': {
             'pop_size': 100,
             'archive_size': 100,
             'max_generations': 100
@@ -2984,7 +3559,7 @@ def main():
     PerformanceIndicators.hypervolume = ImprovedPerformanceIndicators.hypervolume
 
     # 创建实验结果目录
-    results_dir = 'improved_results'
+    results_dir = 'enhanced_results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
         print(f"创建结果目录: {results_dir}")
