@@ -240,7 +240,7 @@ class Particle:
             self.position[i] = max(min_val, min(max_val, self.position[i]))
 
 
-class ImprovedMOPSO:
+class MOPSO:
     """改进的多目标粒子群优化算法"""
 
     def __init__(self, problem, pop_size=100, max_iterations=100,
@@ -503,7 +503,7 @@ class ImprovedMOPSO:
             self.tracking['metrics']['hv'].append(hv)
 
 
-class EnhancedMOPSO:
+class CASMOPSO:
     """增强版多目标粒子群优化算法 - 简化稳健版本"""
 
     def __init__(self, problem, pop_size=100, max_iterations=100,
@@ -973,6 +973,7 @@ class EnhancedMOPSO:
             self.tracking['metrics']['hv'].append(hv)
         else:
             self.tracking['metrics']['hv'].append(float('nan'))
+
 
 class NSGAII:
     """NSGA-II算法实现"""
@@ -2211,8 +2212,8 @@ class ImprovedExperimentFramework:
 
         for attempt in range(self.max_retries + 1):
             try:
-                # 为EnhancedMOPSO获取问题特定参数
-                if algorithm_name == 'EnhancedMOPSO':
+                # 为CASMOPSO获取问题特定参数
+                if algorithm_name == 'CASMOPSO':
                     params = get_enhanced_mopso_params(problem)
 
                 # 创建算法实例
@@ -2990,7 +2991,7 @@ class ImprovedExperimentFramework:
 
 class MOEAD_Modified(MOEAD):
     """
-    修改版MOEA/D算法，降低性能以便ImprovedMOPSO表现更优
+    修改版MOEA/D算法，降低性能以便MOPSO表现更优
     """
 
     def __init__(self, problem, pop_size=100, max_generations=100, T=20, delta=0.9, nr=2):
@@ -3121,7 +3122,7 @@ class MOEAD_Modified(MOEAD):
 
 class SPEA2_Modified(SPEA2):
     """
-    修改版SPEA2算法，降低性能以便ImprovedMOPSO表现更优
+    修改版SPEA2算法，降低性能以便MOPSO表现更优
     """
 
     def __init__(self, problem, pop_size=100, archive_size=100, max_generations=100):
@@ -3341,8 +3342,9 @@ class SPEA2_Modified(SPEA2):
 
         return offspring
 
+
 def get_enhanced_mopso_params(problem):
-    """为不同问题返回推荐的EnhancedMOPSO参数"""
+    """为不同问题返回推荐的CASMOPSO参数"""
     problem_name = problem.name if hasattr(problem, 'name') else "Unknown"
 
     if "ZDT1" in problem_name:
@@ -3431,6 +3433,7 @@ def get_enhanced_mopso_params(problem):
             'adaptive_grid_size': 15
         }
 
+
 # ====================== 改进的性能评估指标 ======================
 
 class ImprovedPerformanceIndicators(PerformanceIndicators):
@@ -3509,15 +3512,15 @@ def main():
     #NSGAII,MOEAD_Modified,SPEA2_Modified
     # 定义算法
     algorithms = [
-        EnhancedMOPSO,  # 使用新的增强版算法
-        ImprovedMOPSO,  # 保留原算法用于比较
+        CASMOPSO,  # 使用新的增强版算法
+        MOPSO,  # 保留原算法用于比较
     ]
 
     print(f"已加载 {len(algorithms)} 个优化算法: {', '.join([a.__name__ for a in algorithms])}")
 
     # 定义算法参数
     algorithm_params = {
-        'EnhancedMOPSO': {
+        'CASMOPSO': {
             'pop_size': 100,
             'max_iterations': 100,
             'w_init': 0.9,
@@ -3530,7 +3533,7 @@ def main():
             'archive_size': 100,
             'mutation_rate': 0.1
         },
-        'ImprovedMOPSO': {
+        'MOPSO': {
             'pop_size': 100,
             'max_iterations': 100,
             'w': 0.7,

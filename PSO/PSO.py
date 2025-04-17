@@ -1,3 +1,5 @@
+# CAS_MOPSO
+# 拥挤度自适应平滑多目标粒子群优化算法 (Crowding-based Adaptive Smoothing Multi-objective Particle Swarm Optimization)
 import math
 import random
 import logging
@@ -1520,7 +1522,16 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
 
     # 绘制最终图表
     tracker.finalize_plots()
-
+    # 添加在返回前，visualize_pareto_front(pareto_front)之后
+    # 保存帕累托前沿到文件
+    try:
+        from pareto_show import save_pareto_front, save_pareto_solutions
+        pareto_front_values = np.array([p.best_fitness for p in non_dominated_front])
+        save_pareto_front(pareto_front_values, "OriginalPSO")
+        save_pareto_solutions(non_dominated_front, "OriginalPSO")
+        print("帕累托解集已成功保存")
+    except Exception as e:
+        print(f"保存帕累托解集时出错: {str(e)}")
     # 返回最终优化过的帕累托前沿
     return non_dominated_front, logbook
 
