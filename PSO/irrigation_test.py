@@ -136,7 +136,7 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
 
             pareto_front = front
             pareto_solutions = []
-            fronts = algorithm._fast_non_dominated_sort(algorithm.population)
+            fronts = algorithm._fast_non_dominated_sorts(algorithm.population)
 
             for individual in fronts[0]:
                 solution = type('Solution', (), {})
@@ -1649,7 +1649,7 @@ class NSGAII:
         self._evaluate_population(self.population)
 
         # 非支配排序
-        fronts = self._fast_non_dominated_sort(self.population)
+        fronts = self._fast_non_dominated_sorts(self.population)
 
         # 分配拥挤度 - 添加空前沿检查
         for front in fronts:
@@ -1674,7 +1674,7 @@ class NSGAII:
             combined = self.population + offspring
 
             # 非支配排序
-            fronts = self._fast_non_dominated_sort(combined)
+            fronts = self._fast_non_dominated_sorts(combined)
 
             # 分配拥挤度
             for front in fronts:
@@ -1698,7 +1698,7 @@ class NSGAII:
             front = self._get_pareto_front()
             # 创建帕累托前沿的解对象列表，与MOPSO_CD兼容
             pareto_solutions = []
-            fronts = self._fast_non_dominated_sort(self.population)
+            fronts = self._fast_non_dominated_sorts(self.population)
             for individual in fronts[0]:
                 solution = type('Solution', (), {})
                 solution.position = individual['x']
@@ -1738,7 +1738,7 @@ class NSGAII:
             if individual['objectives'] is None:
                 individual['objectives'] = np.array(self.problem.evaluate(individual['x']))
 
-    def _fast_non_dominated_sort(self, population):
+    def _fast_non_dominated_sorts(self, population):
         """快速非支配排序 - 改进版"""
         # 初始化
         fronts = [[]]  # 存储不同等级的前沿
@@ -1940,7 +1940,7 @@ class NSGAII:
     def _get_pareto_front(self):
         """获取算法生成的Pareto前沿"""
         # 提取非支配解
-        fronts = self._fast_non_dominated_sort(self.population)
+        fronts = self._fast_non_dominated_sorts(self.population)
         return np.array([individual['objectives'] for individual in fronts[0]])
 
     def _dominates(self, obj1, obj2):
@@ -2404,7 +2404,7 @@ def main():
         irrigation_problem,
         algorithms,
         algorithm_params,
-        n_runs=1,
+        n_runs=3,
         metrics=['sp', 'hv'],
         results_dir=results_dir
     )

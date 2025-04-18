@@ -3514,6 +3514,9 @@ def main():
     algorithms = [
         CASMOPSO,  # 使用新的增强版算法
         MOPSO,  # 保留原算法用于比较
+        NSGAII,
+        MOEAD_Modified,
+        SPEA2_Modified
     ]
 
     print(f"已加载 {len(algorithms)} 个优化算法: {', '.join([a.__name__ for a in algorithms])}")

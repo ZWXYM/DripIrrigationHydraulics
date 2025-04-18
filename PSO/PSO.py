@@ -1527,8 +1527,8 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
     try:
         from pareto_show import save_pareto_front, save_pareto_solutions
         pareto_front_values = np.array([p.best_fitness for p in non_dominated_front])
-        save_pareto_front(pareto_front_values, "OriginalPSO")
-        save_pareto_solutions(non_dominated_front, "OriginalPSO")
+        save_pareto_front(pareto_front_values, "CASMOPSO")
+        save_pareto_solutions(non_dominated_front, "CASMOPSO")
         print("帕累托解集已成功保存")
     except Exception as e:
         print(f"保存帕累托解集时出错: {str(e)}")
@@ -1984,5 +1984,5 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
-    main(23, 49.62, 500, 8, 4, 100, 50, True, True)
+    main(23, 49.62, 500, 8, 4, 200, 200, True, True)
     # main_batch(23, 49.62, 500, 8, 4, 100, 50, False, True)
