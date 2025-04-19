@@ -10,8 +10,7 @@ import time
 import logging
 from tqdm import tqdm
 import os
-
-from scipy.spatial.distance import cdist, pdist
+from scipy.spatial.distance import cdist
 
 
 # ====================== CEC2020 测试函数实现 ======================
@@ -4485,11 +4484,11 @@ def main():
 
     # 设置算法 - 使用所有五种算法
     algorithms = [
-        CASMOPSO,
-        MOPSO,
+        #CASMOPSO,
+        #MOPSO,
         NSGAII,
-        MOEAD,
-        SPEA2
+        #MOEAD,
+        #SPEA2
     ]
 
     # 算法参数
@@ -4519,7 +4518,7 @@ def main():
             "archive_size": 150  # 标准存档大小
         },
         "NSGAII": {
-            "pop_size": 150,
+            "pop_size": 50,
             "max_generations": 200
         },
         "MOEAD": {

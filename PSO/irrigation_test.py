@@ -5,12 +5,9 @@ import time
 from matplotlib import rcParams
 import platform
 import os
-from tqdm import tqdm
 from scipy.spatial.distance import cdist, pdist
 import logging
-import threading
-import concurrent.futures
-from queue import Queue
+
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -104,11 +101,6 @@ def merge_pareto_fronts(algorithm_name, results_dir='pareto_comparison_results')
 def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_comparison_results'):
     """
     统一保存算法的帕累托前沿结果
-
-    参数:
-    algorithm: 算法实例，包含帕累托前沿信息
-    algorithm_name: 算法名称，用于文件命名
-    pareto_dir: 结果保存目录
     """
     try:
         from pareto_show import save_pareto_front, save_pareto_solutions
@@ -118,8 +110,8 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
             os.makedirs(pareto_dir)
 
         # 根据不同算法类型提取帕累托前沿和解集
-        if algorithm_name in ["MOPSO_CD", "EnhancedMOPSO_CD"]:
-            # MOPSO_CD和EnhancedMOPSO_CD基于存档的算法
+        if algorithm_name == "MOPSO":
+            # MOPSO基于存档的算法
             if not algorithm.archive:
                 print(f"{algorithm_name}没有找到有效的帕累托解集")
                 return
@@ -136,7 +128,7 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
 
             pareto_front = front
             pareto_solutions = []
-            fronts = algorithm._fast_non_dominated_sorts(algorithm.population)
+            fronts = algorithm._fast_non_dominated_sort(algorithm.population)
 
             for individual in fronts[0]:
                 solution = type('Solution', (), {})
@@ -147,7 +139,7 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
                 pareto_solutions.append(solution)
 
         elif algorithm_name == "MOEAD":
-            # MOEAD特定处理 - 修复结果问题
+            # MOEAD特定处理
             # 手动提取非支配解集
             population = algorithm.population
             objectives = np.array([ind['objectives'] for ind in population])
@@ -183,7 +175,7 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
                 pareto_solutions.append(solution)
 
         elif algorithm_name == "SPEA2":
-            # SPEA2特定处理 - 修复结果问题
+            # SPEA2特定处理
             # 直接从存档中提取适应度小于1的个体
             non_dominated = [ind for ind in algorithm.archive if ind['fitness'] < 1.0]
 
@@ -229,13 +221,15 @@ def save_algorithm_results(algorithm, algorithm_name, pareto_dir='pareto_compari
         print(f"保存{algorithm_name}帕累托解集时出错: {str(e)}")
         import traceback
         traceback.print_exc()
+
+
 # ====================== 灌溉系统问题适配 ======================
 
 class IrrigationProblem:
     """灌溉系统优化问题包装类"""
 
     def __init__(self, node_count=23, first_pressure=49.62, first_diameter=500,
-                 lgz1=8, lgz2=4, baseline_pressure=23.8, max_variance=5.0):
+                 lgz1=8, lgz2=4, baseline_pressure=23.8, max_variance=10):
         """
         初始化灌溉系统优化问题
 
@@ -389,7 +383,8 @@ class IrrigationProblem:
             main_connection_diameter = self.irrigation_system.main_pipe[i + 1]["diameter"]
 
             # 确保斗管第一段管径不大于干管
-            available_first_diameters = [d for d in self.pipe_specs["submain"]["diameters"] if d <= main_connection_diameter]
+            available_first_diameters = [d for d in self.pipe_specs["submain"]["diameters"] if
+                                         d <= main_connection_diameter]
 
             if not available_first_diameters:
                 continue
@@ -605,13 +600,13 @@ class IrrigationSystemSimulator:
 
         # 首先计算管段0的流量（等于系统总流量）
         self.main_pipe[0]["flow_rate"] = len([node for node in active_nodes_sorted
-                                            if node <= len(self.submains)]) * submain_flow
+                                              if node <= len(self.submains)]) * submain_flow
 
         # 计算其他管段的流量
         for i in range(1, len(self.main_pipe)):
             downstream_flow = sum(submain_flow
-                                for node in active_nodes_sorted
-                                if node >= i and node <= len(self.submains))
+                                  for node in active_nodes_sorted
+                                  if node >= i and node <= len(self.submains))
             self.main_pipe[i]["flow_rate"] = downstream_flow
 
     def _calculate_hydraulics(self):
@@ -621,8 +616,8 @@ class IrrigationSystemSimulator:
             if segment["flow_rate"] > 0:
                 segment["velocity"] = self._water_speed(segment["diameter"], segment["flow_rate"])
                 segment["head_loss"] = self._pressure_loss(segment["diameter"],
-                                                         segment["length"],
-                                                         segment["flow_rate"])
+                                                           segment["length"],
+                                                           segment["flow_rate"])
             else:
                 segment["velocity"] = 0
                 segment["head_loss"] = 0
@@ -631,11 +626,11 @@ class IrrigationSystemSimulator:
         for submain in self.submains:
             if submain["flow_rate"] > 0:
                 first_loss = self._pressure_loss(submain["diameter_first_half"],
-                                               submain["length"] / 2,
-                                               submain["flow_rate"])
+                                                 submain["length"] / 2,
+                                                 submain["flow_rate"])
                 second_loss = self._pressure_loss(submain["diameter_second_half"],
-                                                submain["length"] / 2,
-                                                submain["flow_rate"])
+                                                  submain["length"] / 2,
+                                                  submain["flow_rate"])
                 submain["head_loss"] = first_loss + second_loss
             else:
                 submain["head_loss"] = 0
@@ -644,8 +639,8 @@ class IrrigationSystemSimulator:
         for lateral in self.laterals:
             if lateral["flow_rate"] > 0:
                 lateral["head_loss"] = self._pressure_loss(lateral["diameter"],
-                                                         lateral["length"],
-                                                         lateral["flow_rate"])
+                                                           lateral["length"],
+                                                           lateral["flow_rate"])
             else:
                 lateral["head_loss"] = 0
 
@@ -721,11 +716,11 @@ class IrrigationSystemSimulator:
         # 创建价格查找表
         price_lookup = {
             "main": {d: p for d, p in zip(self.PIPE_SPECS["main"]["diameters"],
-                                        self.PIPE_SPECS["main"]["prices"])},
+                                          self.PIPE_SPECS["main"]["prices"])},
             "submain": {d: p for d, p in zip(self.PIPE_SPECS["submain"]["diameters"],
-                                            self.PIPE_SPECS["submain"]["prices"])},
+                                             self.PIPE_SPECS["submain"]["prices"])},
             "lateral": {d: p for d, p in zip(self.PIPE_SPECS["lateral"]["diameters"],
-                                            self.PIPE_SPECS["lateral"]["prices"])}
+                                             self.PIPE_SPECS["lateral"]["prices"])}
         }
 
         # 计算干管成本（从管段1开始）
@@ -828,40 +823,52 @@ class Particle:
 
 
 class MOPSO:
-    """多目标粒子群优化算法"""
+    """基础多目标粒子群优化算法 (支持动态参数版本)"""
 
+    # 修改 __init__ 方法以接受动态参数范围
     def __init__(self, problem, pop_size=100, max_iterations=100,
-                 w=0.7, c1=1.5, c2=1.5, use_archive=True):
+                 w_init=0.9, w_end=0.4,  # 惯性权重初始/结束值
+                 c1_init=1.5, c1_end=1.5,  # 个体学习因子初始/结束值 (默认保持不变)
+                 c2_init=1.5, c2_end=1.5,  # 社会学习因子初始/结束值 (默认保持不变)
+                 use_archive=True, archive_size=100):  # 添加 archive_size
         """
         初始化MOPSO算法
         problem: 优化问题实例
         pop_size: 种群大小
         max_iterations: 最大迭代次数
-        w, c1, c2: PSO参数
+        w_init, w_end: 惯性权重的初始和结束值
+        c1_init, c1_end: 个体学习因子的初始和结束值
+        c2_init, c2_end: 社会学习因子的初始和结束值
         use_archive: 是否使用外部存档
+        archive_size: 存档大小限制
         """
         self.problem = problem
         self.pop_size = pop_size
         self.max_iterations = max_iterations
-        self.w = w
-        self.c1 = c1
-        self.c2 = c2
+        # 存储动态参数范围
+        self.w_init = w_init
+        self.w_end = w_end
+        self.c1_init = c1_init
+        self.c1_end = c1_end
+        self.c2_init = c2_init
+        self.c2_end = c2_end
+        # 其他参数
         self.use_archive = use_archive
+        self.archive_size = archive_size  # 确保处理 archive_size
 
         # 粒子群和外部存档
         self.particles = []
         self.archive = []
+        # 保持与原MOPSO相同的领导者选择和存档修剪逻辑
         self.leader_selector = self._crowding_distance_leader
-        self.archive_size = 100  # 存档大小限制
+        # self.archive_size = 100 # archive_size 从参数传入
 
         # 性能指标跟踪
         self.tracking = {
             'iterations': [],
             'fronts': [],
             'metrics': {
-                'sp': [],
-                'igd': [],
-                'hv': []
+                'igdf': [], 'igdx': [], 'rpsp': [], 'hv': [], 'sp': []
             }
         }
 
@@ -876,667 +883,320 @@ class MOPSO:
 
         # 初始评估
         for particle in self.particles:
-            particle.fitness = self.problem.evaluate(particle.position)
-            particle.best_fitness = particle.fitness
+            # --- 修改 TP9/TP10 后 evaluate 的返回值 ---
+            evaluation_result = self.problem.evaluate(particle.position)
+            if isinstance(evaluation_result, tuple) and len(evaluation_result) == 2:
+                # 如果返回的是 (objectives, constraints)，只取 objectives
+                objectives = evaluation_result[0]
+            else:
+                # 否则，假设只返回 objectives
+                objectives = evaluation_result
+            particle.fitness = np.array(objectives)  # 使用 numpy 数组存储适应度
+            # --- 修改结束 ---
+            particle.best_position = particle.position.copy()  # 初始化 best_position
+            particle.best_fitness = particle.fitness.copy()  # 使用 fitness 初始化 best_fitness
 
         # 初始化外部存档
         if self.use_archive:
-            self._update_archive()
-
-        # 优化迭代
-        for iteration in tqdm(range(self.max_iterations), disable=not verbose):
-            # 对每个粒子
-            for particle in self.particles:
-                # 选择领导者
-                if self.archive and self.use_archive:
-                    leader = self.leader_selector(particle)
-                else:
-                    leader = self._select_leader_from_swarm(particle)
-
-                # 更新速度和位置
-                particle.update_velocity(leader.best_position, self.w, self.c1, self.c2)
-                particle.update_position()
-
-                # 评估新位置
-                particle.fitness = self.problem.evaluate(particle.position)
-
-                # 更新个体最优
-                if self._dominates(particle.fitness, particle.best_fitness) or np.array_equal(particle.fitness, particle.best_fitness):
-                    particle.best_position = particle.position.copy()
-                    particle.best_fitness = particle.fitness
-
-            # 更新外部存档
-            if self.use_archive:
-                self._update_archive()
-
-            # 跟踪性能指标
-            if tracking and iteration % 10 == 0:
-                self._track_performance(iteration)
-
-            # 调整惯性权重（线性递减）
-            self.w = max(0.4, self.w - 0.3 / self.max_iterations)
-
-        # 最终评估
-        if tracking:
-            self._track_performance(self.max_iterations - 1)
-        # 添加在返回前
-        try:
-            from pareto_show import save_pareto_front, save_pareto_solutions
-            pareto_front_values = np.array([p.best_fitness for p in self.archive if hasattr(p, 'best_fitness')])
-            save_pareto_front(pareto_front_values, "MOPSO")
-            save_pareto_solutions(self.archive, "MOPSO")
-            print("MOPSO帕累托解集已成功保存")
-        except Exception as e:
-            print(f"保存帕累托解集时出错: {str(e)}")
-        # 返回Pareto前沿
-        return self._get_pareto_front()
-
-    def _update_archive(self):
-        """更新外部存档"""
-        # 将当前粒子的个体最优位置添加到存档中
-        for particle in self.particles:
-            is_dominated = False
-            archive_copy = self.archive.copy()
-
-            # 检查是否被存档中的解支配
-            for solution in archive_copy:
-                if self._dominates(solution.best_fitness, particle.best_fitness):
-                    is_dominated = True
-                    break
-                # 检查是否支配存档中的解
-                elif self._dominates(particle.best_fitness, solution.best_fitness):
-                    self.archive.remove(solution)
-
-            # 如果不被支配，添加到存档
-            if not is_dominated and not any(np.array_equal(particle.best_position, a.best_position) for a in self.archive):
-                # 深拷贝粒子
-                archive_particle = Particle(particle.dimensions, particle.bounds)
-                archive_particle.position = particle.best_position.copy()
-                archive_particle.best_position = particle.best_position.copy()
-                archive_particle.fitness = particle.best_fitness
-                archive_particle.best_fitness = particle.best_fitness
-
-                self.archive.append(archive_particle)
-
-        # 如果存档超过大小限制，使用拥挤度排序保留多样性
-        if len(self.archive) > self.archive_size:
-            self._prune_archive()
-
-    def _prune_archive(self):
-        """使用拥挤度排序修剪存档"""
-        # 使用拥挤度排序保留前N个解
-        crowding_distances = self._calculate_crowding_distance([a.best_fitness for a in self.archive])
-
-        # 排序并保留前archive_size个
-        sorted_indices = np.argsort(crowding_distances)[::-1]
-        self.archive = [self.archive[i] for i in sorted_indices[:self.archive_size]]
-
-    def _crowding_distance_leader(self, particle):
-        """基于拥挤度选择领导者"""
-        # 随机选择候选
-        candidates_idx = np.random.choice(len(self.archive), min(3, len(self.archive)), replace=False)
-        candidates = [self.archive[i] for i in candidates_idx]
-
-        # 计算候选的拥挤度
-        if len(candidates) > 1:
-            fitnesses = [c.best_fitness for c in candidates]
-            crowding_distances = self._calculate_crowding_distance(fitnesses)
-
-            # 选择拥挤度最大的
-            best_idx = np.argmax(crowding_distances)
-            return candidates[best_idx]
-        else:
-            return candidates[0]
-
-    def _select_leader_from_swarm(self, particle):
-        """从粒子群中选择领导者"""
-        # 从非支配解中随机选择
-        non_dominated = []
-        for p in self.particles:
-            if not any(self._dominates(other.best_fitness, p.best_fitness) for other in self.particles):
-                non_dominated.append(p)
-
-        if not non_dominated:
-            return particle
-
-        # 使用轮盘赌选择
-        return random.choice(non_dominated)
-
-    def _calculate_crowding_distance(self, fitnesses):
-        """计算拥挤度"""
-        n = len(fitnesses)
-        if n <= 2:
-            return [float('inf')] * n
-
-        # 将fitnesses转换为numpy数组
-        points = np.array(fitnesses)
-
-        # 初始化距离
-        distances = np.zeros(n)
-
-        # 对每个目标
-        for i in range(self.problem.n_obj):
-            # 按该目标排序
-            idx = np.argsort(points[:, i])
-
-            # 边界点设为无穷
-            distances[idx[0]] = float('inf')
-            distances[idx[-1]] = float('inf')
-
-            # 计算中间点
-            if n > 2:
-                # 目标范围
-                f_range = points[idx[-1], i] - points[idx[0], i]
-
-                # 避免除以零
-                if f_range > 0:
-                    for j in range(1, n - 1):
-                        distances[idx[j]] += (points[idx[j + 1], i] - points[idx[j - 1], i]) / f_range
-
-        return distances
-
-    def _dominates(self, fitness1, fitness2):
-        """判断fitness1是否支配fitness2"""
-        # 确保转换为numpy数组以便比较
-        f1 = np.array(fitness1)
-        f2 = np.array(fitness2)
-
-        # 至少一个目标更好
-        better = False
-        for i in range(len(f1)):
-            if f1[i] > f2[i]:  # 假设最小化
-                return False
-            if f1[i] < f2[i]:
-                better = True
-
-        return better
-
-    def _get_pareto_front(self):
-        """获取算法生成的Pareto前沿"""
-        if self.use_archive and self.archive:
-            return np.array([p.best_fitness for p in self.archive])
-        else:
-            # 从粒子群中提取非支配解
-            non_dominated = []
-            for p in self.particles:
-                if not any(self._dominates(other.best_fitness, p.best_fitness) for other in self.particles):
-                    non_dominated.append(p.best_fitness)
-            return np.array(non_dominated)
-
-    def _track_performance(self, iteration):
-        """跟踪性能指标"""
-        # 获取当前Pareto前沿
-        front = self._get_pareto_front()
-
-        # 保存迭代次数和前沿
-        self.tracking['iterations'].append(iteration)
-        self.tracking['fronts'].append(front)
-
-        # 计算性能指标
-        true_front = self.problem.get_pareto_front()
-
-        # 均匀性指标SP
-        if len(front) > 1:
-            sp = self._spacing(front)
-            self.tracking['metrics']['sp'].append(sp)
-        else:
-            self.tracking['metrics']['sp'].append(float('nan'))
-
-        # IGD指标
-        if true_front is not None and len(front) > 0:
-            igd = self._igd(front, true_front)
-            self.tracking['metrics']['igd'].append(igd)
-        else:
-            self.tracking['metrics']['igd'].append(float('nan'))
-
-        # 超体积指标HV
-        if self.problem.n_obj == 2 and len(front) > 0:
-            # 设置参考点
-            if true_front is not None:
-                ref_point = np.max(true_front, axis=0) * 1.1
-            else:
-                ref_point = np.max(front, axis=0) * 1.1
-
-            hv = self._hypervolume(front, ref_point)
-            self.tracking['metrics']['hv'].append(hv)
-        else:
-            self.tracking['metrics']['hv'].append(float('nan'))
-
-    def _spacing(self, front):
-        """
-        计算Pareto前沿的均匀性指标SP
-        值越小表示分布越均匀
-        """
-        if len(front) < 2:
-            return 0
-
-        # 计算每对解之间的欧几里得距离
-        distances = pdist(front, 'euclidean')
-
-        # 计算平均距离
-        d_mean = np.mean(distances)
-
-        # 计算标准差
-        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / (len(distances) - 1))
-
-        return sp
-
-    def _igd(self, approximation_front, true_front):
-        """
-        计算反向代际距离(IGD)
-        从真实Pareto前沿到近似前沿的平均距离
-        值越小表示质量越高
-        """
-        if len(approximation_front) == 0 or len(true_front) == 0:
-            return float('inf')
-
-        # 计算每个点到前沿的最小距离
-        distances = cdist(true_front, approximation_front, 'euclidean')
-        min_distances = np.min(distances, axis=1)
-
-        # 返回平均距离
-        return np.mean(min_distances)
-
-    def _hypervolume(self, front, reference_point):
-        """
-        计算超体积指标(HV)
-        前沿与参考点构成的超体积
-        值越大表示质量越高
-        注意：这是一个简化版本，只适用于二维问题
-        """
-        # 对于高维问题应使用专业库如pygmo或pymoo
-        if len(front) == 0:
-            return 0
-
-        # 确保前沿是按照第一个目标升序排序的
-        front_sorted = front[front[:, 0].argsort()]
-
-        # 计算超体积（二维情况下是面积）
-        hypervolume = 0
-        for i in range(len(front_sorted)):
-            if i == 0:
-                # 第一个点
-                height = reference_point[1] - front_sorted[i, 1]
-                width = front_sorted[i, 0] - reference_point[0]
-            else:
-                # 其他点
-                height = reference_point[1] - front_sorted[i, 1]
-                width = front_sorted[i, 0] - front_sorted[i - 1, 0]
-
-            # 只累加正面积
-            area = height * width
-            if area > 0:
-                hypervolume += area
-
-        # 确保返回非负值
-        return max(0, hypervolume)
-
-
-class MOPSO_CD:
-    """增强版多目标粒子群优化算法"""
-
-    def __init__(self, problem, pop_size=100, max_iterations=100,
-                 w_init=0.9, w_end=0.4, c1_init=2.5, c1_end=0.5,
-                 c2_init=0.5, c2_end=2.5, use_archive=True,
-                 archive_size=100, mutation_rate=0.1, adaptive_grid_size=10):
-        """
-        初始化增强版MOPSO_CD算法
-        problem: 优化问题实例
-        pop_size: 种群大小
-        max_iterations: 最大迭代次数
-        w_init, w_end: 惯性权重的初始值和结束值
-        c1_init, c1_end: 个体学习因子的初始值和结束值
-        c2_init, c2_end: 社会学习因子的初始值和结束值
-        use_archive: 是否使用外部存档
-        archive_size: 存档大小限制
-        mutation_rate: 变异率
-        adaptive_grid_size: 自适应网格大小(用于存档管理)
-        """
-        self.problem = problem
-        self.pop_size = pop_size
-        self.max_iterations = max_iterations
-        self.w_init = w_init
-        self.w_end = w_end
-        self.c1_init = c1_init
-        self.c1_end = c1_end
-        self.c2_init = c2_init
-        self.c2_end = c2_end
-        self.use_archive = use_archive
-        self.archive_size = archive_size
-        self.mutation_rate = mutation_rate
-
-        # 粒子群和外部存档
-        self.particles = []
-        self.archive = []
-
-        # 性能指标跟踪
-        self.tracking = {
-            'iterations': [],
-            'fronts': [],
-            'metrics': {
-                'sp': [],
-                'igd': [],
-                'hv': []
-            }
-        }
-
-    def optimize(self, tracking=True, verbose=True):
-        """执行优化过程"""
-        # 初始化粒子群
-        self._initialize_particles()
-
-        # 初始化存档
-        self.archive = []
-
-        # 初始评估
-        for particle in self.particles:
-            particle.fitness = self.problem.evaluate(particle.position)
-            particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness, 'copy') else particle.fitness
-
-        # 初始化外部存档
-        if self.use_archive:
-            self._update_archive()
+            self._update_archive()  # 使用初始 pbest 更新存档
 
         # 优化迭代
         for iteration in range(self.max_iterations):
             if verbose and iteration % 10 == 0:
                 print(f"迭代 {iteration}/{self.max_iterations}，当前存档大小: {len(self.archive)}")
 
-            # 更新参数
+            # --- 计算当前迭代的动态参数 ---
             progress = iteration / self.max_iterations
-            w = self.w_init - (self.w_init - self.w_end) * progress
-            c1 = self.c1_init - (self.c1_init - self.c1_end) * progress
-            c2 = self.c2_init + (self.c2_end - self.c2_init) * progress
+            current_w = self.w_init - (self.w_init - self.w_end) * progress
+            current_c1 = self.c1_init - (self.c1_init - self.c1_end) * progress
+            current_c2 = self.c2_init + (self.c2_end - self.c2_init) * progress
+            # --- 参数计算结束 ---
 
             # 对每个粒子
             for particle in self.particles:
                 # 选择领导者
                 if self.archive and self.use_archive:
-                    leader = self._select_leader(particle)
+                    leader = self.leader_selector(particle)
                 else:
-                    leader = self._select_leader_from_swarm(particle)
+                    # 如果没有存档或不使用存档，需要一个备选策略
+                    # 可以从种群本身的非支配解中选，或随机选一个粒子
+                    # 这里我们调用与 CASMOPSO 类似的内部选择函数 (如果需要，可单独实现)
+                    leader = self._select_leader_from_swarm(particle)  # 确保这个方法存在或被正确调用
 
+                # 如果没有领导者可选 (例如初始时存档为空且无法从种群选)
                 if leader is None:
-                    continue
+                    # 可以让粒子使用自己的 pbest 作为引导，或者跳过更新
+                    # 这里选择让粒子使用自己的 pbest
+                    leader = particle  # 让它飞向自己的历史最优
 
-                # 更新速度和位置
-                particle.update_velocity(leader.best_position, w, c1, c2)
+                # 更新速度和位置 (使用当前计算出的 w, c1, c2)
+                particle.update_velocity(leader.best_position, current_w, current_c1, current_c2)
                 particle.update_position()
 
-                # 应用变异
-                self._apply_mutation(particle, progress)
-
                 # 评估新位置
-                particle.fitness = self.problem.evaluate(particle.position)
+                # --- 同样处理 evaluate 的返回值 ---
+                evaluation_result = self.problem.evaluate(particle.position)
+                if isinstance(evaluation_result, tuple) and len(evaluation_result) == 2:
+                    objectives = evaluation_result[0]
+                else:
+                    objectives = evaluation_result
+                particle.fitness = np.array(objectives)  # 更新 fitness
+                # --- 修改结束 ---
 
-                # 更新个体最优
+                # 更新个体最优 (pbest)
+                # 需要比较 fitness 和 best_fitness
                 if self._dominates(particle.fitness, particle.best_fitness):
                     particle.best_position = particle.position.copy()
-                    particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness, 'copy') else particle.fitness
+                    particle.best_fitness = particle.fitness.copy()
+                # 如果是非支配关系，可以考虑随机更新或不更新
                 elif not self._dominates(particle.best_fitness, particle.fitness):
-                    # 非支配情况，随机选择是否更新
-                    if np.random.random() < 0.5:
+                    # 如果两个解互不支配，可以随机选择是否更新 pbest
+                    if random.random() < 0.5:
                         particle.best_position = particle.position.copy()
-                        particle.best_fitness = particle.fitness.copy() if hasattr(particle.fitness, 'copy') else particle.fitness
+                        particle.best_fitness = particle.fitness.copy()
 
-            # 更新外部存档
+            # 更新外部存档 (使用更新后的 pbest)
             if self.use_archive:
                 self._update_archive()
 
             # 跟踪性能指标
             if tracking and iteration % 10 == 0:
+                # 确保 _track_performance 使用的是存档或种群的 pbest
                 self._track_performance(iteration)
 
         # 最终评估
         if tracking:
             self._track_performance(self.max_iterations - 1)
 
-        if verbose:
-            print(f"优化完成，最终存档大小: {len(self.archive)}")
-        # 添加在返回前
-        try:
-            from pareto_show import save_pareto_front, save_pareto_solutions
-            pareto_front_values = np.array([p.best_fitness for p in self.archive if hasattr(p, 'best_fitness')])
-            save_pareto_front(pareto_front_values, "MOPSO_CD")
-            save_pareto_solutions(self.archive, "MOPSO_CD")
-            print("MOPSO_CD帕累托解集已成功保存")
-        except Exception as e:
-            print(f"保存帕累托解集时出错: {str(e)}")
         # 返回Pareto前沿
-        return self._get_pareto_front()
+        return self._get_pareto_front()  # 基于最终存档或种群 pbest
 
-    def _initialize_particles(self):
-        """初始化粒子群"""
-        self.particles = []
-        bounds = list(zip(self.problem.xl, self.problem.xu))
-
-        # 创建粒子
-        for i in range(self.pop_size):
-            particle = Particle(self.problem.n_var, bounds)
-
-            # 特殊初始化第一个变量以获得更好的前沿覆盖
-            if self.problem.n_obj == 2 and i < self.pop_size // 3:
-                # 为前1/3的粒子均匀分布f1
-                particle.position[0] = self.problem.xl[0] + (i / (self.pop_size // 3)) * (
-                            self.problem.xu[0] - self.problem.xl[0])
-
-            self.particles.append(particle)
-
-    def _select_leader(self, particle):
-        """选择领导者"""
-        if not self.archive:
-            return None
-
-        # 使用拥挤度选择
-        return self._crowding_distance_leader(particle)
-
-    def _crowding_distance_leader(self, particle):
-        """基于拥挤度的领导者选择"""
-        if len(self.archive) <= 1:
-            return self.archive[0] if self.archive else None
-
-        # 选择候选
-        tournament_size = min(3, len(self.archive))
-        candidates_idx = np.random.choice(len(self.archive), tournament_size, replace=False)
-        candidates = [self.archive[i] for i in candidates_idx]
-
-        # 计算拥挤度
-        crowding_distances = self._calculate_crowding_distance([c.best_fitness for c in candidates])
-
-        # 选择拥挤度最大的
-        max_idx = np.argmax(crowding_distances)
-        return candidates[max_idx]
-
-    def _select_leader_from_swarm(self, particle):
-        """从粒子群中选择领导者"""
-        # 获取非支配解
-        non_dominated = []
-        for p in self.particles:
-            is_dominated = False
-            for other in self.particles:
-                if self._dominates(other.best_fitness, p.best_fitness):
-                    is_dominated = True
-                    break
-            if not is_dominated:
-                non_dominated.append(p)
-
-        if not non_dominated:
-            return particle
-
-        # 随机选择一个非支配解
-        return random.choice(non_dominated)
-
-    def _apply_mutation(self, particle, progress):
-        """应用变异操作"""
-        # 根据迭代进度调整变异率
-        current_rate = self.mutation_rate * (1 - progress * 0.7)
-
-        # 对每个维度
-        for i in range(self.problem.n_var):
-            # 第一个变量有更高的变异率，以获取更好的前沿分布
-            actual_rate = current_rate * 1.5 if i == 0 else current_rate
-
-            if np.random.random() < actual_rate:
-                # 多项式变异
-                eta_m = 20  # 分布指数
-
-                delta1 = (particle.position[i] - self.problem.xl[i]) / (self.problem.xu[i] - self.problem.xl[i])
-                delta2 = (self.problem.xu[i] - particle.position[i]) / (self.problem.xu[i] - self.problem.xl[i])
-
-                rand = np.random.random()
-                mut_pow = 1.0 / (eta_m + 1.0)
-
-                if rand < 0.5:
-                    xy = 1.0 - delta1
-                    val = 2.0 * rand + (1.0 - 2.0 * rand) * (xy ** (eta_m + 1.0))
-                    delta_q = val ** mut_pow - 1.0
-                else:
-                    xy = 1.0 - delta2
-                    val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (xy ** (eta_m + 1.0))
-                    delta_q = 1.0 - val ** mut_pow
-
-                particle.position[i] += delta_q * (self.problem.xu[i] - self.problem.xl[i])
-                particle.position[i] = max(self.problem.xl[i], min(self.problem.xu[i], particle.position[i]))
-
+    # --- _update_archive 方法保持不变，但确保它使用 best_fitness ---
     def _update_archive(self):
         """更新外部存档"""
         # 将当前粒子的个体最优位置添加到存档中
-        for particle in self.particles:
-            is_dominated = False
-            archive_copy = self.archive.copy()
+        current_pbest_positions = [p.best_position for p in self.particles]
+        current_pbest_fitness = [p.best_fitness for p in self.particles]
 
-            # 检查是否被存档中的解支配
-            for solution in archive_copy:
-                if self._dominates(solution.best_fitness, particle.best_fitness):
-                    is_dominated = True
-                    break
-                # 检查是否支配存档中的解
-                elif self._dominates(particle.best_fitness, solution.best_fitness):
-                    self.archive.remove(solution)
+        combined_solutions = []
+        # 添加当前存档
+        if self.archive:
+            combined_solutions.extend([(p.best_position, p.best_fitness) for p in self.archive])
+        # 添加当前种群的 pbest
+        combined_solutions.extend(zip(current_pbest_positions, current_pbest_fitness))
 
-            # 如果不被支配，添加到存档
-            if not is_dominated and not any(np.array_equal(particle.best_position, a.best_position) for a in self.archive):
-                # 深拷贝粒子
-                archive_particle = Particle(particle.dimensions, particle.bounds)
-                archive_particle.position = particle.best_position.copy()
-                archive_particle.best_position = particle.best_position.copy()
-                archive_particle.fitness = particle.best_fitness.copy() if hasattr(particle.best_fitness, 'copy') else particle.best_fitness
-                archive_particle.best_fitness = particle.best_fitness.copy() if hasattr(particle.best_fitness, 'copy') else particle.best_fitness
+        # 提取非支配解来构建新存档
+        new_archive_solutions = []
+        if combined_solutions:
+            positions = np.array([s[0] for s in combined_solutions])
+            fitnesses = np.array([s[1] for s in combined_solutions])
 
-                self.archive.append(archive_particle)
+            # 查找非支配解的索引
+            is_dominated = np.zeros(len(fitnesses), dtype=bool)
+            for i in range(len(fitnesses)):
+                if is_dominated[i]: continue
+                for j in range(i + 1, len(fitnesses)):
+                    if is_dominated[j]: continue
+                    if self._dominates(fitnesses[i], fitnesses[j]):
+                        is_dominated[j] = True
+                    elif self._dominates(fitnesses[j], fitnesses[i]):
+                        is_dominated[i] = True
+                        break  # i被支配，跳出内层循环
+
+            non_dominated_indices = np.where(~is_dominated)[0]
+
+            # 重新创建存档粒子列表
+            self.archive = []
+            unique_positions = set()  # 用于去重
+            for idx in non_dominated_indices:
+                pos_tuple = tuple(positions[idx])
+                if pos_tuple not in unique_positions:
+                    archive_particle = Particle(self.problem.n_var, list(zip(self.problem.xl, self.problem.xu)))
+                    archive_particle.position = positions[idx].copy()  # 当前位置设为最优位置
+                    archive_particle.best_position = positions[idx].copy()
+                    archive_particle.fitness = fitnesses[idx].copy()  # 当前适应度设为最优适应度
+                    archive_particle.best_fitness = fitnesses[idx].copy()
+                    self.archive.append(archive_particle)
+                    unique_positions.add(pos_tuple)
 
         # 如果存档超过大小限制，使用拥挤度排序保留多样性
         if len(self.archive) > self.archive_size:
             self._prune_archive()
 
+    # --- _prune_archive 方法保持不变 ---
     def _prune_archive(self):
-        """标准存档修剪方法"""
-        # 计算拥挤度
-        crowding_distances = self._calculate_crowding_distance([a.best_fitness for a in self.archive])
+        """使用拥挤度排序修剪存档"""
+        if len(self.archive) <= self.archive_size:
+            return
+        # 使用拥挤度排序保留前N个解
+        fitnesses = [a.best_fitness for a in self.archive]
+        crowding_distances = self._calculate_crowding_distance(fitnesses)
 
-        # 按拥挤度排序并保留前archive_size个
+        # 按拥挤度降序排序
         sorted_indices = np.argsort(crowding_distances)[::-1]
+        # 保留前 archive_size 个
         self.archive = [self.archive[i] for i in sorted_indices[:self.archive_size]]
 
+    # --- _crowding_distance_leader 方法保持不变 ---
+    def _crowding_distance_leader(self, particle):
+        """基于拥挤度选择领导者"""
+        if not self.archive:  # 如果存档为空，返回 None 或其他策略
+            return None  # 或者返回粒子自身？ particle
+        if len(self.archive) == 1:
+            return self.archive[0]
+
+        # 随机选择候选 (锦标赛选择)
+        tournament_size = min(3, len(self.archive))  # 锦标赛大小
+        candidates_idx = np.random.choice(len(self.archive), tournament_size, replace=False)
+        candidates = [self.archive[i] for i in candidates_idx]
+
+        # 计算候选的拥挤度
+        fitnesses = [c.best_fitness for c in candidates]
+        crowding_distances = self._calculate_crowding_distance(fitnesses)
+
+        # 选择拥挤度最大的
+        best_idx_in_candidates = np.argmax(crowding_distances)
+        return candidates[best_idx_in_candidates]
+
+    # --- 添加 _select_leader_from_swarm (如果需要) ---
+    def _select_leader_from_swarm(self, particle):
+        """从粒子群的pbest中选择领导者 (如果存档为空或不使用)"""
+        # 提取当前种群的所有 pbest fitness
+        pbest_fitnesses = [p.best_fitness for p in self.particles]
+        pbest_positions = [p.best_position for p in self.particles]
+
+        # 找出非支配的 pbest
+        non_dominated_indices = []
+        is_dominated = np.zeros(len(pbest_fitnesses), dtype=bool)
+        for i in range(len(pbest_fitnesses)):
+            if is_dominated[i]: continue
+            for j in range(i + 1, len(pbest_fitnesses)):
+                if is_dominated[j]: continue
+                if self._dominates(pbest_fitnesses[i], pbest_fitnesses[j]):
+                    is_dominated[j] = True
+                elif self._dominates(pbest_fitnesses[j], pbest_fitnesses[i]):
+                    is_dominated[i] = True
+                    break
+            if not is_dominated[i]:
+                non_dominated_indices.append(i)
+
+        if not non_dominated_indices:
+            # 如果没有非支配解 (不太可能发生，除非所有解都相同)
+            # 返回粒子自身或者随机选一个
+            return particle  # 让它飞向自己的历史最优
+
+        # 从非支配的 pbest 中随机选择一个作为领导者
+        leader_idx = random.choice(non_dominated_indices)
+        # 返回一个临时的 "leader" 对象，包含 best_position
+        # 或者直接返回 pbest_position? update_velocity 需要 best_position
+        temp_leader = Particle(self.problem.n_var, [])  # 临时对象
+        temp_leader.best_position = pbest_positions[leader_idx]
+        return temp_leader
+
+    # --- _calculate_crowding_distance 方法保持不变 ---
     def _calculate_crowding_distance(self, fitnesses):
-        """计算拥挤度"""
         n = len(fitnesses)
         if n <= 2:
             return [float('inf')] * n
-
-        # 将fitnesses转换为numpy数组
         points = np.array(fitnesses)
-
-        # 初始化距离
         distances = np.zeros(n)
-
-        # 对每个目标
         for i in range(self.problem.n_obj):
-            # 按该目标排序
             idx = np.argsort(points[:, i])
-
-            # 边界点设为无穷
             distances[idx[0]] = float('inf')
             distances[idx[-1]] = float('inf')
-
-            # 计算中间点
             if n > 2:
-                # 目标范围
                 f_range = points[idx[-1], i] - points[idx[0], i]
-
-                # 避免除以零
-                if f_range > 0:
+                if f_range > 1e-8:  # 避免除零
                     for j in range(1, n - 1):
                         distances[idx[j]] += (points[idx[j + 1], i] - points[idx[j - 1], i]) / f_range
-
         return distances
 
+    # --- _dominates 方法保持不变 ---
     def _dominates(self, fitness1, fitness2):
         """判断fitness1是否支配fitness2"""
-        # 确保转换为numpy数组以便比较
-        if not isinstance(fitness1, np.ndarray):
-            f1 = np.array(fitness1)
-        else:
-            f1 = fitness1
+        f1 = np.asarray(fitness1)  # 确保是数组
+        f2 = np.asarray(fitness2)  # 确保是数组
+        # 检查维度是否匹配，以防万一
+        if f1.shape != f2.shape:
+            print(f"警告: 支配比较时维度不匹配: {f1.shape} vs {f2.shape}")
+            return False  # 或者抛出错误
+        # 至少一个目标严格更好，且没有目标更差
+        return np.all(f1 <= f2) and np.any(f1 < f2)
 
-        if not isinstance(fitness2, np.ndarray):
-            f2 = np.array(fitness2)
-        else:
-            f2 = fitness2
-
-        # 至少一个目标更好，其他不差
-        better = False
-        for i in range(len(f1)):
-            if f1[i] > f2[i]:  # 假设最小化
-                return False
-            if f1[i] < f2[i]:
-                better = True
-
-        return better
-
+    # --- _get_pareto_front 方法保持不变 ---
     def _get_pareto_front(self):
         """获取算法生成的Pareto前沿"""
         if self.use_archive and self.archive:
+            # 确保返回的是 best_fitness
             return np.array([p.best_fitness for p in self.archive])
         else:
-            # 从粒子群中提取非支配解
+            # 从粒子群的 pbest 中提取非支配解
+            pbest_fitnesses = [p.best_fitness for p in self.particles]
+            if not pbest_fitnesses: return np.array([])  # 处理空种群
+
             non_dominated = []
-            for p in self.particles:
-                if not any(self._dominates(other.best_fitness, p.best_fitness) for other in self.particles):
-                    non_dominated.append(p.best_fitness)
+            is_dominated = np.zeros(len(pbest_fitnesses), dtype=bool)
+            for i in range(len(pbest_fitnesses)):
+                if is_dominated[i]: continue
+                for j in range(i + 1, len(pbest_fitnesses)):
+                    if is_dominated[j]: continue
+                    if self._dominates(pbest_fitnesses[i], pbest_fitnesses[j]):
+                        is_dominated[j] = True
+                    elif self._dominates(pbest_fitnesses[j], pbest_fitnesses[i]):
+                        is_dominated[i] = True
+                        break
+                if not is_dominated[i]:
+                    non_dominated.append(pbest_fitnesses[i])
             return np.array(non_dominated)
 
+    # --- _get_pareto_set 方法保持不变 ---
+    def _get_pareto_set(self):
+        """获取算法生成的Pareto解集"""
+        if self.use_archive and self.archive:
+            # 确保返回的是 best_position
+            return np.array([p.best_position for p in self.archive])
+        else:
+            # 从粒子群的 pbest 中提取非支配解
+            pbest_fitnesses = [p.best_fitness for p in self.particles]
+            pbest_positions = [p.best_position for p in self.particles]
+            if not pbest_fitnesses: return np.array([])
+
+            non_dominated_indices = []
+            is_dominated = np.zeros(len(pbest_fitnesses), dtype=bool)
+            for i in range(len(pbest_fitnesses)):
+                if is_dominated[i]: continue
+                for j in range(i + 1, len(pbest_fitnesses)):
+                    if is_dominated[j]: continue
+                    if self._dominates(pbest_fitnesses[i], pbest_fitnesses[j]):
+                        is_dominated[j] = True
+                    elif self._dominates(pbest_fitnesses[j], pbest_fitnesses[i]):
+                        is_dominated[i] = True
+                        break
+                if not is_dominated[i]:
+                    non_dominated_indices.append(i)
+            return np.array([pbest_positions[i] for i in non_dominated_indices])
+
+    # MOPSO _track_performance函数
+    # MOPSO _track_performance函数基本不需要修改
     def _track_performance(self, iteration):
         """跟踪性能指标"""
-        # 获取当前Pareto前沿
         front = self._get_pareto_front()
-
-        # 保存迭代次数和前沿
         self.tracking['iterations'].append(iteration)
         self.tracking['fronts'].append(front)
 
-        # 计算性能指标
+        # 灌溉问题没有真实前沿
         true_front = self.problem.get_pareto_front()
 
-        # 均匀性指标SP
+        # SP指标计算保持不变
         if len(front) > 1:
             sp = self._spacing(front)
             self.tracking['metrics']['sp'].append(sp)
         else:
             self.tracking['metrics']['sp'].append(float('nan'))
 
-        # IGD指标
-        if true_front is not None and len(front) > 0:
-            igd = self._igd(front, true_front)
-            self.tracking['metrics']['igd'].append(igd)
-        else:
-            self.tracking['metrics']['igd'].append(float('nan'))
-
-        # 超体积指标HV
-        if self.problem.n_obj == 2 and len(front) > 0:
-            # 设置参考点
+        # 超体积指标HV - 确保适用于二维问题
+        if len(front) > 0:
             ref_point = np.max(front, axis=0) * 1.1
-
             hv = self._hypervolume(front, ref_point)
             self.tracking['metrics']['hv'].append(hv)
         else:
@@ -1557,34 +1217,16 @@ class MOPSO_CD:
         d_mean = np.mean(distances)
 
         # 计算标准差
-        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / (len(distances) - 1))
+        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / len(distances))
 
         return sp
 
-    def _igd(self, approximation_front, true_front):
-        """
-        计算反向代际距离(IGD)
-        从真实Pareto前沿到近似前沿的平均距离
-        值越小表示质量越高
-        """
-        if len(approximation_front) == 0 or len(true_front) == 0:
-            return float('inf')
-
-        # 计算每个点到前沿的最小距离
-        distances = cdist(true_front, approximation_front, 'euclidean')
-        min_distances = np.min(distances, axis=1)
-
-        # 返回平均距离
-        return np.mean(min_distances)
-
     def _hypervolume(self, front, reference_point):
         """
-        计算超体积指标(HV)
+        计算超体积指标(HV) - 适用于二维问题
         前沿与参考点构成的超体积
         值越大表示质量越高
-        注意：这是一个简化版本，只适用于二维问题
         """
-        # 对于高维问题应使用专业库如pygmo或pymoo
         if len(front) == 0:
             return 0
 
@@ -1615,29 +1257,39 @@ class MOPSO_CD:
 class NSGAII:
     """NSGA-II算法实现"""
 
-    def __init__(self, problem, pop_size=100, max_generations=100):
+    def __init__(self, problem, pop_size=100, max_generations=100,
+                 pc=0.9,  # 交叉概率 (Crossover probability)
+                 eta_c=20,  # SBX 交叉分布指数 (Distribution index for SBX)
+                 pm_ratio=1.0,  # 变异概率因子 (pm = pm_ratio / n_var)
+                 eta_m=20):  # 多项式变异分布指数 (Distribution index for polynomial mutation)
         """
         初始化NSGA-II算法
         problem: 优化问题实例
         pop_size: 种群大小
         max_generations: 最大代数
+        pc: 模拟二进制交叉 (SBX) 的概率
+        eta_c: SBX 的分布指数
+        pm_ratio: 变异概率 pm = pm_ratio / n_var (n_var 是变量数)
+        eta_m: 多项式变异的分布指数
         """
         self.problem = problem
         self.pop_size = pop_size
         self.max_generations = max_generations
+        # --- 存储交叉和变异参数 ---
+        self.pc = pc
+        self.eta_c = eta_c
+        # 计算实际的变异概率 pm (每个变量独立变异的概率)
+        self.pm = pm_ratio / self.problem.n_var
+        self.eta_m = eta_m
+        # --- 参数存储结束 ---
 
         # 种群
         self.population = None
 
         # 性能指标跟踪
         self.tracking = {
-            'iterations': [],
-            'fronts': [],
-            'metrics': {
-                'sp': [],
-                'igd': [],
-                'hv': []
-            }
+            'iterations': [], 'fronts': [],
+            'metrics': {'igdf': [], 'igdx': [], 'rpsp': [], 'hv': [], 'sp': []}
         }
 
     def optimize(self, tracking=True, verbose=True):
@@ -1649,7 +1301,7 @@ class NSGAII:
         self._evaluate_population(self.population)
 
         # 非支配排序
-        fronts = self._fast_non_dominated_sorts(self.population)
+        fronts = self._fast_non_dominated_sort(self.population)
 
         # 分配拥挤度 - 添加空前沿检查
         for front in fronts:
@@ -1659,7 +1311,7 @@ class NSGAII:
         # 迭代优化
         for generation in range(self.max_generations):
             if verbose and generation % 10 == 0:
-                print(f"迭代 {generation}/{self.max_generations}，当前种群大小: {len(self.population)}")
+                print(f"迭代 {generation}/{self.max_generations}")
 
             # 选择
             parents = self._tournament_selection(self.population)
@@ -1674,11 +1326,12 @@ class NSGAII:
             combined = self.population + offspring
 
             # 非支配排序
-            fronts = self._fast_non_dominated_sorts(combined)
+            fronts = self._fast_non_dominated_sort(combined)
 
             # 分配拥挤度
             for front in fronts:
-                self._crowding_distance_assignment(front)
+                if front:  # 确保前沿不为空
+                    self._crowding_distance_assignment(front)
 
             # 环境选择
             self.population = self._environmental_selection(fronts)
@@ -1690,29 +1343,6 @@ class NSGAII:
         # 最终评估
         if tracking:
             self._track_performance(self.max_generations - 1)
-
-        # 保存帕累托前沿
-        try:
-            from pareto_show import save_pareto_front, save_pareto_solutions
-            # 获取帕累托前沿
-            front = self._get_pareto_front()
-            # 创建帕累托前沿的解对象列表，与MOPSO_CD兼容
-            pareto_solutions = []
-            fronts = self._fast_non_dominated_sorts(self.population)
-            for individual in fronts[0]:
-                solution = type('Solution', (), {})
-                solution.position = individual['x']
-                solution.best_position = individual['x']
-                solution.fitness = individual['objectives']
-                solution.best_fitness = individual['objectives']
-                pareto_solutions.append(solution)
-
-            # 保存帕累托前沿和解集
-            save_pareto_front(front, "NSGAII")
-            save_pareto_solutions(pareto_solutions, "NSGAII")
-            print("NSGAII帕累托解集已成功保存")
-        except Exception as e:
-            print(f"保存帕累托解集时出错: {str(e)}")
 
         # 返回Pareto前沿
         return self._get_pareto_front()
@@ -1738,7 +1368,7 @@ class NSGAII:
             if individual['objectives'] is None:
                 individual['objectives'] = np.array(self.problem.evaluate(individual['x']))
 
-    def _fast_non_dominated_sorts(self, population):
+    def _fast_non_dominated_sort(self, population):
         """快速非支配排序 - 改进版"""
         # 初始化
         fronts = [[]]  # 存储不同等级的前沿
@@ -1785,32 +1415,45 @@ class NSGAII:
         return fronts
 
     def _crowding_distance_assignment(self, front):
-        """分配拥挤度"""
-        if len(front) == 0:
+        """分配拥挤度 (增强分母稳定性)"""
+        if not front:  # 检查 front 是否为空
             return
 
         n = len(front)
         for p in front:
-            p['crowding_distance'] = 0
+            p['crowding_distance'] = 0.0  # 确保初始化为浮点数
+
+        # 提取 fitnesses
+        fitnesses = np.array([ind['objectives'] for ind in front])
 
         # 对每个目标
         for m in range(self.problem.n_obj):
-            # 按目标排序
-            front.sort(key=lambda x: x['objectives'][m])
+            # 按目标排序 (获取排序后的索引)
+            sorted_indices = np.argsort(fitnesses[:, m])
 
             # 边界点设为无穷
-            front[0]['crowding_distance'] = float('inf')
-            front[n - 1]['crowding_distance'] = float('inf')
+            front[sorted_indices[0]]['crowding_distance'] = float('inf')
+            front[sorted_indices[-1]]['crowding_distance'] = float('inf')
 
             # 计算中间点的拥挤度
             if n > 2:
-                f_max = front[n - 1]['objectives'][m]
-                f_min = front[0]['objectives'][m]
-                norm = f_max - f_min if f_max > f_min else 1.0
+                f_max = fitnesses[sorted_indices[-1], m]
+                f_min = fitnesses[sorted_indices[0], m]
+
+                # --- 修改: 为分母添加 epsilon ---
+                # norm = f_max - f_min if f_max > f_min else 1.0 # 原来的方式
+                epsilon = 1e-9  # 一个很小的值
+                norm = (f_max - f_min) + epsilon  # 加上 epsilon 避免严格为0
+                # --- 修改结束 ---
 
                 for i in range(1, n - 1):
-                    front[i]['crowding_distance'] += (front[i + 1]['objectives'][m] - front[i - 1]['objectives'][
-                        m]) / norm
+                    # 使用原始 front 列表中的索引来更新距离
+                    prev_idx = sorted_indices[i - 1]
+                    next_idx = sorted_indices[i + 1]
+                    current_idx = sorted_indices[i]
+
+                    numerator = fitnesses[next_idx, m] - fitnesses[prev_idx, m]
+                    front[current_idx]['crowding_distance'] += numerator / norm
 
     def _tournament_selection(self, population):
         """锦标赛选择"""
@@ -1830,91 +1473,100 @@ class NSGAII:
         return selected
 
     def _crossover_and_mutation(self, parents):
-        """交叉和变异 - 改进版"""
+        """交叉和变异 - 使用 self 中的参数"""
         offspring = []
+        n_var = self.problem.n_var
+        xl = self.problem.xl
+        xu = self.problem.xu
 
-        # 确保进行偶数次交叉
-        for i in range(0, len(parents), 2):
-            if i + 1 < len(parents):
-                # 深拷贝父代
-                p1 = parents[i].copy()
-                p2 = parents[i + 1].copy()
+        # 确保进行偶数次交叉，生成 pop_size 个子代
+        parent_indices = list(range(len(parents)))
+        random.shuffle(parent_indices)  # 打乱父代顺序
 
-                # SBX交叉
-                if random.random() < 0.9:
-                    eta = 15  # 分布指数
+        for i in range(0, self.pop_size, 2):
+            # 选择父代索引，处理最后一个父代可能落单的情况
+            idx1 = parent_indices[i]
+            idx2 = parent_indices[i + 1] if (i + 1) < len(parents) else parent_indices[0]  # 落单则与第一个配对
 
-                    for j in range(self.problem.n_var):
-                        if random.random() < 0.5:
-                            # 确保x1 <= x2
-                            if p1['x'][j] < p2['x'][j]:
-                                x1, x2 = p1['x'][j], p2['x'][j]
+            # 深拷贝父代以产生子代（避免修改原始父代）
+            p1 = parents[idx1].copy()
+            p2 = parents[idx2].copy()
+            # 确保子代有独立的 'x' 副本
+            p1['x'] = parents[idx1]['x'].copy()
+            p2['x'] = parents[idx2]['x'].copy()
+
+            # SBX交叉
+            # 使用 self.pc 和 self.eta_c
+            if random.random() < self.pc:
+                for j in range(n_var):
+                    if random.random() < 0.5:  # 对每个变量 50% 概率交叉
+                        y1, y2 = p1['x'][j], p2['x'][j]
+                        if abs(y1 - y2) > 1e-10:
+                            if y1 > y2: y1, y2 = y2, y1  # 确保 y1 <= y2
+
+                            rand = random.random()
+                            beta = 1.0 + (2.0 * (y1 - xl[j]) / (y2 - y1)) if (y2 - y1) > 1e-10 else 1.0
+                            alpha = 2.0 - beta ** -(self.eta_c + 1.0)
+                            if rand <= (1.0 / alpha):
+                                beta_q = (rand * alpha) ** (1.0 / (self.eta_c + 1.0))
                             else:
-                                x2, x1 = p1['x'][j], p2['x'][j]
+                                beta_q = (1.0 / (2.0 - rand * alpha)) ** (1.0 / (self.eta_c + 1.0))
 
-                            # 执行SBX
-                            if abs(x2 - x1) > 1e-10:
-                                beta = 1.0 + 2.0 * (x1 - self.problem.xl[j]) / (x2 - x1)
-                                alpha = 2.0 - beta ** (-eta - 1)
-                                rand = random.random()
+                            c1 = 0.5 * ((1.0 + beta_q) * y1 + (1.0 - beta_q) * y2)
+                            c2 = 0.5 * ((1.0 - beta_q) * y1 + (1.0 + beta_q) * y2)
 
-                                if rand <= 1.0 / alpha:
-                                    beta_q = (rand * alpha) ** (1.0 / (eta + 1))
-                                else:
-                                    beta_q = (1.0 / (2.0 - rand * alpha)) ** (1.0 / (eta + 1))
+                            # 边界处理
+                            c1 = np.clip(c1, xl[j], xu[j])
+                            c2 = np.clip(c2, xl[j], xu[j])
 
-                                # 生成子代
-                                c1 = 0.5 * ((1 + beta_q) * x1 + (1 - beta_q) * x2)
-                                c2 = 0.5 * ((1 - beta_q) * x1 + (1 + beta_q) * x2)
+                            # 随机分配给子代
+                            if random.random() < 0.5:
+                                p1['x'][j], p2['x'][j] = c1, c2
+                            else:
+                                p1['x'][j], p2['x'][j] = c2, c1
 
-                                # 边界检查
-                                c1 = max(self.problem.xl[j], min(self.problem.xu[j], c1))
-                                c2 = max(self.problem.xl[j], min(self.problem.xu[j], c2))
+            # 多项式变异
+            # 使用 self.pm 和 self.eta_m
+            for child in [p1, p2]:
+                for j in range(n_var):
+                    if random.random() < self.pm:  # 使用 self.pm
+                        y = child['x'][j]
+                        delta1 = (y - xl[j]) / (xu[j] - xl[j]) if (xu[j] - xl[j]) > 1e-10 else 0.5
+                        delta2 = (xu[j] - y) / (xu[j] - xl[j]) if (xu[j] - xl[j]) > 1e-10 else 0.5
+                        delta1 = np.clip(delta1, 0, 1)  # 确保在[0,1]
+                        delta2 = np.clip(delta2, 0, 1)  # 确保在[0,1]
 
-                                p1['x'][j] = c1
-                                p2['x'][j] = c2
+                        rand = random.random()
+                        mut_pow = 1.0 / (self.eta_m + 1.0)  # 使用 self.eta_m
 
-                # 变异
-                for p in [p1, p2]:
-                    if random.random() < 0.1:
-                        for j in range(self.problem.n_var):
-                            # 多项式变异
-                            mutation_prob = 1.0 / self.problem.n_var
+                        if rand < 0.5:
+                            xy = 1.0 - delta1
+                            if xy < 0: xy = 0
+                            val = 2.0 * rand + (1.0 - 2.0 * rand) * (xy ** (self.eta_m + 1.0))
+                            delta_q = val ** mut_pow - 1.0
+                        else:
+                            xy = 1.0 - delta2
+                            if xy < 0: xy = 0
+                            val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (xy ** (self.eta_m + 1.0))
+                            delta_q = 1.0 - val ** mut_pow
 
-                            if random.random() < mutation_prob:
-                                eta_m = 20  # 变异分布指数
+                        y = y + delta_q * (xu[j] - xl[j])
+                        child['x'][j] = np.clip(y, xl[j], xu[j])  # 边界处理
 
-                                delta1 = (p['x'][j] - self.problem.xl[j]) / (self.problem.xu[j] - self.problem.xl[j])
-                                delta2 = (self.problem.xu[j] - p['x'][j]) / (self.problem.xu[j] - self.problem.xl[j])
+            # 重置子代的评估状态
+            p1['objectives'] = None
+            p1['rank'] = None
+            p1['crowding_distance'] = None
+            p2['objectives'] = None
+            p2['rank'] = None
+            p2['crowding_distance'] = None
 
-                                # 多项式变异
-                                rnd = random.random()
-                                mut_pow = 1.0 / (eta_m + 1.0)
-
-                                if rnd < 0.5:
-                                    xy = 1.0 - delta1
-                                    val = 2.0 * rnd + (1.0 - 2.0 * rnd) * (xy ** (eta_m + 1.0))
-                                    delta_q = val ** mut_pow - 1.0
-                                else:
-                                    xy = 1.0 - delta2
-                                    val = 2.0 * (1.0 - rnd) + 2.0 * (rnd - 0.5) * (xy ** (eta_m + 1.0))
-                                    delta_q = 1.0 - val ** mut_pow
-
-                                p['x'][j] += delta_q * (self.problem.xu[j] - self.problem.xl[j])
-                                p['x'][j] = max(self.problem.xl[j], min(self.problem.xu[j], p['x'][j]))
-
-                # 重置适应度值，待评估
-                p1['objectives'] = None
-                p2['objectives'] = None
-                p1['rank'] = None
-                p2['rank'] = None
-                p1['crowding_distance'] = None
-                p2['crowding_distance'] = None
-
-                offspring.append(p1)
+            offspring.append(p1)
+            # 确保只添加 pop_size 个子代
+            if len(offspring) < self.pop_size:
                 offspring.append(p2)
 
-        return offspring
+        return offspring[:self.pop_size]  # 返回精确 pop_size 个子代
 
     def _environmental_selection(self, fronts):
         """环境选择"""
@@ -1940,15 +1592,21 @@ class NSGAII:
     def _get_pareto_front(self):
         """获取算法生成的Pareto前沿"""
         # 提取非支配解
-        fronts = self._fast_non_dominated_sorts(self.population)
+        fronts = self._fast_non_dominated_sort(self.population)
         return np.array([individual['objectives'] for individual in fronts[0]])
+
+    def _get_pareto_set(self):
+        """获取算法生成的Pareto解集"""
+        # 提取非支配解
+        fronts = self._fast_non_dominated_sort(self.population)
+        return np.array([individual['x'] for individual in fronts[0]])
 
     def _dominates(self, obj1, obj2):
         """判断obj1是否支配obj2"""
         return np.all(obj1 <= obj2) and np.any(obj1 < obj2)
 
     def _track_performance(self, generation):
-        """跟踪性能指标"""
+        """跟踪性能指标 - 修改版"""
         # 获取当前Pareto前沿
         front = self._get_pareto_front()
 
@@ -1956,28 +1614,21 @@ class NSGAII:
         self.tracking['iterations'].append(generation)
         self.tracking['fronts'].append(front)
 
-        # 计算性能指标
+        # 灌溉问题没有真实前沿
         true_front = self.problem.get_pareto_front()
 
         # 均匀性指标SP
         sp = self._spacing(front)
         self.tracking['metrics']['sp'].append(sp)
 
-        # IGD指标
-        if true_front is not None:
-            igd = self._igd(front, true_front)
-            self.tracking['metrics']['igd'].append(igd)
-
-        # 超体积指标HV
-        if self.problem.n_obj == 2:
-            # 设置参考点为理想点
-            if true_front is not None:
-                ref_point = np.max(true_front, axis=0) * 1.1
-            else:
-                ref_point = np.max(front, axis=0) * 1.1
-
+        # 超体积指标HV - 适用于灌溉系统二维问题
+        if len(front) > 0:
+            # 设置参考点
+            ref_point = np.max(front, axis=0) * 1.1
             hv = self._hypervolume(front, ref_point)
             self.tracking['metrics']['hv'].append(hv)
+        else:
+            self.tracking['metrics']['hv'].append(float('nan'))
 
     def _spacing(self, front):
         """
@@ -1988,49 +1639,1105 @@ class NSGAII:
             return 0
 
         # 计算每对解之间的欧几里得距离
-        distances = []
-        for i in range(len(front)):
-            for j in range(i + 1, len(front)):
-                dist = np.sqrt(np.sum((front[i] - front[j]) ** 2))
-                distances.append(dist)
+        distances = pdist(front, 'euclidean')
 
         # 计算平均距离
         d_mean = np.mean(distances)
 
         # 计算标准差
-        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / (len(distances) - 1))
+        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / len(distances))
 
         return sp
 
-    def _igd(self, approximation_front, true_front):
+    def _hypervolume(self, front, reference_point):
         """
-        计算反向代际距离(IGD)
-        从真实Pareto前沿到近似前沿的平均距离
-        值越小表示质量越高
+        计算超体积指标(HV) - 适用于二维问题
+        前沿与参考点构成的超体积
+        值越大表示质量越高
         """
-        if len(approximation_front) == 0 or len(true_front) == 0:
-            return float('inf')
+        if len(front) == 0:
+            return 0
 
-        # 计算每个点到前沿的最小距离
-        min_distances = []
-        for point in true_front:
+        # 确保前沿是按照第一个目标升序排序的
+        front_sorted = front[front[:, 0].argsort()]
+
+        # 计算超体积（二维情况下是面积）
+        hypervolume = 0
+        for i in range(len(front_sorted)):
+            if i == 0:
+                # 第一个点
+                height = reference_point[1] - front_sorted[i, 1]
+                width = front_sorted[i, 0] - reference_point[0]
+            else:
+                # 其他点
+                height = reference_point[1] - front_sorted[i, 1]
+                width = front_sorted[i, 0] - front_sorted[i - 1, 0]
+
+            # 只累加正面积
+            area = height * width
+            if area > 0:
+                hypervolume += area
+
+        # 确保返回非负值
+        return max(0, hypervolume)
+
+
+class SPEA2:
+    """强度Pareto进化算法2"""
+
+    def __init__(self, problem, pop_size=200, archive_size=300, max_generations=200):
+        """
+        大幅增加种群大小和存档大小
+        """
+        self.problem = problem
+        self.pop_size = pop_size  # 增至200
+        self.archive_size = archive_size  # 增至300
+        self.max_generations = max_generations
+
+        # 种群和存档
+        self.population = []
+        self.archive = []
+
+        # 性能指标跟踪
+        self.tracking = {
+            'iterations': [],
+            'fronts': [],
+            'metrics': {
+                'igdf': [], 'igdx': [], 'rpsp': [], 'hv': [], 'sp': []
+            }
+        }
+
+    def optimize(self, tracking=True, verbose=True):
+        """修改优化流程以增强收敛和多样性"""
+        # 初始化种群
+        self._initialize_population()
+
+        # 初始化存档
+        self.archive = []
+
+        # 计算初始适应度
+        self._calculate_fitness(self.population + self.archive)
+
+        # 更新存档
+        self._update_archive()
+
+        # 迭代优化
+        for gen in range(self.max_generations):
+            if verbose and gen % 10 == 0:
+                print(f"迭代 {gen}/{self.max_generations}，存档大小: {len(self.archive)}")
+
+            # 环境选择
+            mating_pool = self._environmental_selection()
+
+            # 产生下一代
+            offspring = self._generate_offspring(mating_pool)
+
+            # 替换种群
+            self.population = offspring
+
+            # 计算适应度
+            self._calculate_fitness(self.population + self.archive)
+
+            # 更新存档
+            self._update_archive()
+
+            # 如果解的数量太少，添加更多多样性
+            if gen % 20 == 0 and len(self.archive) < 50:
+                self._inject_diversity()
+
+            # 跟踪性能指标
+            if tracking and gen % 10 == 0:
+                self._track_performance(gen)
+
+        # 最终评估
+        if tracking:
+            self._track_performance(self.max_generations - 1)
+
+        # 返回Pareto前沿
+        return self._get_pareto_front()
+
+    def _inject_diversity(self):
+        """注入多样性机制"""
+        # 生成一些随机解
+        random_solutions = []
+        for _ in range(int(self.pop_size * 0.2)):  # 20%的种群大小
+            x = np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+            objectives = np.array(self.problem.evaluate(x))
+            random_solutions.append({
+                'x': x,
+                'objectives': objectives,
+                'fitness': 0.0,
+                'strength': 0,
+                'raw_fitness': 0.0,
+                'distance': 0.0
+            })
+
+        # 替换种群中的一部分解
+        if self.population:
+            replace_indices = np.random.choice(len(self.population), min(len(random_solutions), len(self.population)),
+                                               replace=False)
+            for i, idx in enumerate(replace_indices):
+                self.population[idx] = random_solutions[i]
+
+    def _initialize_population(self):
+        """初始化种群"""
+        self.population = []
+
+        for _ in range(self.pop_size):
+            # 随机生成个体
+            x = np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+
+            # 评估个体
+            objectives = np.array(self.problem.evaluate(x))  # 确保是numpy数组
+
+            # 添加到种群
+            self.population.append({
+                'x': x,
+                'objectives': objectives,
+                'fitness': 0.0,
+                'strength': 0,
+                'raw_fitness': 0.0,
+                'distance': 0.0
+            })
+
+    def _calculate_fitness(self, combined_pop):
+        """完全重写的适应度计算方法"""
+        n = len(combined_pop)
+
+        # 计算支配关系矩阵
+        is_dominated = np.zeros((n, n), dtype=bool)
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    if self._dominates(combined_pop[i]['objectives'], combined_pop[j]['objectives']):
+                        is_dominated[i, j] = True
+
+        # 计算每个个体支配的个体数 (strength)
+        for i, p in enumerate(combined_pop):
+            p['strength'] = np.sum(is_dominated[i])
+
+        # 计算raw fitness (被支配情况)
+        for i, p in enumerate(combined_pop):
+            dominated_by = np.where(is_dominated[:, i])[0]
+            p['raw_fitness'] = sum(combined_pop[j]['strength'] for j in dominated_by)
+
+        # 新的密度估计方法 - 使用K最近邻
+        k = int(np.sqrt(n))  # k值
+
+        # 计算所有个体之间的距离
+        objectives = np.array([p['objectives'] for p in combined_pop])
+        distances = cdist(objectives, objectives)
+
+        # 对每个个体计算密度
+        for i, p in enumerate(combined_pop):
+            # 排除自己
+            dist_to_others = np.delete(distances[i], i)
+            # 找到第k个最近的距离
+            if len(dist_to_others) >= k:
+                kth_dist = np.sort(dist_to_others)[k - 1]
+                # 改进的密度计算公式，调小密度惩罚
+                p['distance'] = 1.0 / (kth_dist + 3.0)
+            else:
+                p['distance'] = 0.0
+
+        # 最终适应度 = raw fitness + distance (降低密度影响)
+        for p in combined_pop:
+            p['fitness'] = p['raw_fitness'] + 0.5 * p['distance']  # 减小密度影响
+
+    def _update_archive(self):
+        """改进的存档更新方法"""
+        # 合并种群和存档
+        combined = self.population + self.archive
+
+        # 重新计算适应度
+        self._calculate_fitness(combined)
+
+        # 选择适应度小于1的个体(非支配解)
+        new_archive = [p for p in combined if p['fitness'] < 1.0]
+
+        # 如果非支配解太少
+        if len(new_archive) < self.archive_size:
+            # 按适应度排序
+            remaining = [p for p in combined if p['fitness'] >= 1.0]
+            remaining.sort(key=lambda x: x['fitness'])
+
+            # 添加适应度最小的个体
+            new_archive.extend(remaining[:self.archive_size - len(new_archive)])
+
+        # 如果非支配解太多
+        elif len(new_archive) > self.archive_size:
+            # 根据目标空间的多样性排序 - 优先保留边界解
+            while len(new_archive) > self.archive_size:
+                # 删除最拥挤的解
+                self._remove_most_crowded_improved(new_archive)
+
+        # 更新存档
+        self.archive = new_archive
+
+    def _remove_most_crowded_improved(self, archive):
+        """改进的拥挤度计算和裁剪方法"""
+        if len(archive) <= 1:
+            return
+
+        # 提取目标值
+        objectives = np.array([p['objectives'] for p in archive])
+
+        # 如果是二目标问题，特殊处理以保留边界点
+        if objectives.shape[1] == 2:
+            # 识别边界解 (每个目标的最小值)
+            min_f1_idx = np.argmin(objectives[:, 0])
+            min_f2_idx = np.argmin(objectives[:, 1])
+            # 保护边界解
+            protected_indices = {min_f1_idx, min_f2_idx}
+
+            # 如果所有解都是边界解，随机删除一个
+            if len(protected_indices) >= len(archive):
+                to_remove = np.random.randint(0, len(archive))
+                archive.pop(to_remove)
+                return
+
+            # 计算所有可删除解的拥挤度
             min_dist = float('inf')
-            for approx_point in approximation_front:
-                dist = np.sqrt(np.sum((point - approx_point) ** 2))
-                min_dist = min(min_dist, dist)
-            min_distances.append(min_dist)
+            to_remove = -1
 
-        # 返回平均距离
-        return np.mean(min_distances)
+            for i in range(len(archive)):
+                if i in protected_indices:
+                    continue
+
+                # 计算到其他解的最小距离
+                min_dist_i = float('inf')
+                for j in range(len(archive)):
+                    if i == j:
+                        continue
+
+                    dist = np.sqrt(np.sum((objectives[i] - objectives[j]) ** 2))
+                    min_dist_i = min(min_dist_i, dist)
+
+                # 找到拥挤度最大(距离最小)的解
+                if min_dist_i < min_dist:
+                    min_dist = min_dist_i
+                    to_remove = i
+
+            # 删除拥挤度最大的解
+            if to_remove >= 0:
+                archive.pop(to_remove)
+            else:
+                # 如果没找到，随机删除
+                non_protected = [i for i in range(len(archive)) if i not in protected_indices]
+                to_remove = np.random.choice(non_protected)
+                archive.pop(to_remove)
+        else:
+            # 多目标问题使用传统方法
+            # 寻找距离最近的一对解
+            min_dist = float('inf')
+            min_i, min_j = 0, 0
+
+            for i in range(len(archive)):
+                for j in range(i + 1, len(archive)):
+                    dist = np.sqrt(np.sum((objectives[i] - objectives[j]) ** 2))
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_i, min_j = i, j
+
+            # 决定删除哪一个 - 选择距其他解更近的一个
+            i_dist = 0.0
+            j_dist = 0.0
+
+            for k in range(len(archive)):
+                if k != min_i and k != min_j:
+                    i_dist += np.sqrt(np.sum((objectives[min_i] - objectives[k]) ** 2))
+                    j_dist += np.sqrt(np.sum((objectives[min_j] - objectives[k]) ** 2))
+
+            # 移除最拥挤的个体
+            if i_dist < j_dist:
+                archive.pop(min_i)
+            else:
+                archive.pop(min_j)
+    def _remove_most_crowded(self, archive):
+        """移除最拥挤的个体"""
+        # 计算所有个体间的距离
+        if len(archive) <= 1:
+            return
+
+        min_dist = float('inf')
+        min_i = 0
+        min_j = 0
+
+        for i in range(len(archive)):
+            i_obj = np.array(archive[i]['objectives'])  # 确保是numpy数组
+
+            for j in range(i + 1, len(archive)):
+                j_obj = np.array(archive[j]['objectives'])  # 确保是numpy数组
+                dist = np.sqrt(np.sum((i_obj - j_obj) ** 2))
+                if dist < min_dist:
+                    min_dist = dist
+                    min_i = i
+                    min_j = j
+
+        # 找到距离其他个体更近的那个
+        i_dist = 0.0
+        j_dist = 0.0
+
+        for k in range(len(archive)):
+            if k != min_i and k != min_j:
+                k_obj = np.array(archive[k]['objectives'])  # 确保是numpy数组
+                i_obj = np.array(archive[min_i]['objectives'])  # 确保是numpy数组
+                j_obj = np.array(archive[min_j]['objectives'])  # 确保是numpy数组
+
+                i_dist += np.sqrt(np.sum((i_obj - k_obj) ** 2))
+                j_dist += np.sqrt(np.sum((j_obj - k_obj) ** 2))
+
+        # 移除最拥挤的个体
+        if i_dist < j_dist:
+            archive.pop(min_i)
+        else:
+            archive.pop(min_j)
+
+    def _environmental_selection(self):
+        """环境选择，选择用于交配的个体"""
+        # 创建交配池
+        mating_pool = []
+
+        # 二元锦标赛选择
+        for _ in range(self.pop_size):
+            # 随机选择两个个体
+            if len(self.archive) > 0:
+                idx1 = np.random.randint(0, len(self.archive))
+                idx2 = np.random.randint(0, len(self.archive))
+
+                # 选择适应度更好的个体
+                if self.archive[idx1]['fitness'] < self.archive[idx2]['fitness']:
+                    mating_pool.append(self.archive[idx1])
+                else:
+                    mating_pool.append(self.archive[idx2])
+            else:
+                # 如果存档为空，从种群中选择
+                idx1 = np.random.randint(0, len(self.population))
+                idx2 = np.random.randint(0, len(self.population))
+
+                if self.population[idx1]['fitness'] < self.population[idx2]['fitness']:
+                    mating_pool.append(self.population[idx1])
+                else:
+                    mating_pool.append(self.population[idx2])
+
+        return mating_pool
+
+    def _generate_offspring(self, mating_pool):
+        """完全重写生成子代方法"""
+        offspring = []
+
+        # 增加多样性机制 - 注入一些随机解
+        random_count = int(self.pop_size * 0.1)  # 10%的随机解
+        for _ in range(random_count):
+            # 完全随机解
+            x = np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+            objectives = np.array(self.problem.evaluate(x))
+            offspring.append({
+                'x': x,
+                'objectives': objectives,
+                'fitness': 0.0,
+                'strength': 0,
+                'raw_fitness': 0.0,
+                'distance': 0.0
+            })
+
+        # 生成剩余的子代
+        for _ in range(self.pop_size - random_count):
+            # 选择父代 - 锦标赛选择
+            parents = []
+            for _ in range(2):
+                if len(mating_pool) > 3:
+                    # 锦标赛大小
+                    tournament_size = 3
+                    candidates = np.random.choice(len(mating_pool), tournament_size, replace=False)
+                    tournament = [mating_pool[idx] for idx in candidates]
+                    # 选择适应度最好的
+                    best = min(tournament, key=lambda x: x['fitness'])
+                    parents.append(best)
+                else:
+                    # 如果交配池太小，随机选择
+                    parents.append(random.choice(mating_pool))
+
+            # 确保有两个父代
+            if len(parents) < 2:
+                # 复制第一个父代
+                parents.append(parents[0])
+
+            parent1 = parents[0]['x']
+            parent2 = parents[1]['x']
+
+            # 模拟二进制交叉(SBX) - 参数调整
+            cr = 0.95  # 高交叉率
+            eta_c = 10  # 低分布指数 = 高多样性
+
+            child_x = np.zeros(self.problem.n_var)
+
+            for i in range(self.problem.n_var):
+                if np.random.random() < cr:
+                    # 执行交叉
+                    if abs(parent1[i] - parent2[i]) > 1e-10:
+                        y1, y2 = min(parent1[i], parent2[i]), max(parent1[i], parent2[i])
+
+                        # 计算beta值
+                        beta = 1.0 + 2.0 * (y1 - self.problem.xl[i]) / (y2 - y1)
+                        alpha = 2.0 - beta ** (-eta_c - 1)
+                        rand = np.random.random()
+
+                        if rand <= 1.0 / alpha:
+                            beta_q = (rand * alpha) ** (1.0 / (eta_c + 1))
+                        else:
+                            beta_q = (1.0 / (2.0 - rand * alpha)) ** (1.0 / (eta_c + 1))
+
+                        # 生成子代
+                        child_x[i] = 0.5 * ((1 + beta_q) * y1 + (1 - beta_q) * y2)
+
+                        # 边界处理
+                        child_x[i] = max(self.problem.xl[i], min(self.problem.xu[i], child_x[i]))
+                    else:
+                        child_x[i] = parent1[i]
+                else:
+                    # 随机选择一个父代
+                    child_x[i] = parent1[i] if np.random.random() < 0.5 else parent2[i]
+
+            # 多项式变异 - 增强变异强度
+            pm = 2.0 / self.problem.n_var  # 增加变异概率
+            eta_m = 10  # 降低分布指数，增加变异量
+
+            for i in range(self.problem.n_var):
+                if np.random.random() < pm:
+                    y = child_x[i]
+                    delta1 = (y - self.problem.xl[i]) / (self.problem.xu[i] - self.problem.xl[i])
+                    delta2 = (self.problem.xu[i] - y) / (self.problem.xu[i] - self.problem.xl[i])
+
+                    rand = np.random.random()
+                    mut_pow = 1.0 / (eta_m + 1.0)
+
+                    if rand < 0.5:
+                        xy = 1.0 - delta1
+                        val = 2.0 * rand + (1.0 - 2.0 * rand) * (xy ** (eta_m + 1.0))
+                        delta_q = val ** mut_pow - 1.0
+                    else:
+                        xy = 1.0 - delta2
+                        val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (xy ** (eta_m + 1.0))
+                        delta_q = 1.0 - val ** mut_pow
+
+                    child_x[i] = y + delta_q * (self.problem.xu[i] - self.problem.xl[i])
+                    child_x[i] = max(self.problem.xl[i], min(self.problem.xu[i], child_x[i]))
+
+            # 评估子代
+            try:
+                child_obj = np.array(self.problem.evaluate(child_x))
+
+                # 添加到子代种群
+                offspring.append({
+                    'x': child_x,
+                    'objectives': child_obj,
+                    'fitness': 0.0,
+                    'strength': 0,
+                    'raw_fitness': 0.0,
+                    'distance': 0.0
+                })
+            except Exception as e:
+                print(f"评估子代时出错: {e}")
+                # 生成随机解
+                x = np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+                objectives = np.array(self.problem.evaluate(x))
+                offspring.append({
+                    'x': x,
+                    'objectives': objectives,
+                    'fitness': 0.0,
+                    'strength': 0,
+                    'raw_fitness': 0.0,
+                    'distance': 0.0
+                })
+
+        return offspring
+
+    def _dominates(self, obj1, obj2):
+        """判断obj1是否支配obj2"""
+        return np.all(obj1 <= obj2) and np.any(obj1 < obj2)
+
+    def _get_pareto_front(self):
+        """获取Pareto前沿"""
+        # 返回存档中的非支配解的目标值
+        non_dominated = [ind for ind in self.archive if ind['fitness'] < 1.0]
+        if not non_dominated and self.archive:
+            # 如果没有严格非支配解，使用整个存档
+            non_dominated = self.archive
+        return np.array([ind['objectives'] for ind in non_dominated])
+
+    def _get_pareto_set(self):
+        """获取Pareto解集"""
+        # 返回存档中的非支配解的决策变量
+        non_dominated = [ind for ind in self.archive if ind['fitness'] < 1.0]
+        if not non_dominated and self.archive:
+            # 如果没有严格非支配解，使用整个存档
+            non_dominated = self.archive
+        return np.array([ind['x'] for ind in non_dominated])
+
+    def _track_performance(self, iteration):
+        """跟踪性能指标 - irr风格实现"""
+        # 获取当前Pareto前沿
+        front = self._get_pareto_front()
+
+        # 保存迭代次数和前沿
+        self.tracking['iterations'].append(iteration)
+        self.tracking['fronts'].append(front)
+
+        # 均匀性指标SP
+        if len(front) > 1:
+            sp = self._spacing(front)
+            self.tracking['metrics']['sp'].append(sp)
+        else:
+            self.tracking['metrics']['sp'].append(float('nan'))
+
+        # 超体积指标HV
+        if len(front) > 0:
+            # 设置参考点
+            ref_point = np.max(front, axis=0) * 1.1
+
+            try:
+                hv = self._hypervolume(front, ref_point)
+                self.tracking['metrics']['hv'].append(hv)
+            except Exception as e:
+                print(f"HV计算错误: {e}")
+                self.tracking['metrics']['hv'].append(float('nan'))
+        else:
+            self.tracking['metrics']['hv'].append(float('nan'))
+
+    def _spacing(self, front):
+        """
+        计算Pareto前沿的均匀性指标SP
+        值越小表示分布越均匀
+        """
+        if len(front) < 2:
+            return 0
+
+        # 计算每对解之间的欧几里得距离
+        distances = pdist(front, 'euclidean')
+
+        # 计算平均距离
+        d_mean = np.mean(distances)
+
+        # 计算标准差
+        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / len(distances))
+
+        return sp
 
     def _hypervolume(self, front, reference_point):
         """
-        计算超体积指标(HV)
+        计算超体积指标(HV) - 适用于二维问题
         前沿与参考点构成的超体积
         值越大表示质量越高
-        注意：这是一个简化版本，只适用于二维问题
         """
-        # 对于高维问题应使用专业库如pygmo或pymoo
+        if len(front) == 0:
+            return 0
+
+        # 确保前沿是按照第一个目标升序排序的
+        front_sorted = front[front[:, 0].argsort()]
+
+        # 计算超体积（二维情况下是面积）
+        hypervolume = 0
+        for i in range(len(front_sorted)):
+            if i == 0:
+                # 第一个点
+                height = reference_point[1] - front_sorted[i, 1]
+                width = front_sorted[i, 0] - reference_point[0]
+            else:
+                # 其他点
+                height = reference_point[1] - front_sorted[i, 1]
+                width = front_sorted[i, 0] - front_sorted[i - 1, 0]
+
+            # 只累加正面积
+            area = height * width
+            if area > 0:
+                hypervolume += area
+
+        # 确保返回非负值
+        return max(0, hypervolume)
+
+
+class MOEAD:
+    """基于分解的多目标进化算法(MOEA/D)"""
+
+    def __init__(self, problem, pop_size=500, max_generations=300, T=10, delta=0.7, nr=20):
+        """
+        大幅增加种群大小、减少邻居数量、增加更新数量
+        """
+        self.problem = problem
+        self.pop_size = pop_size  # 增至500
+        self.max_generations = max_generations
+        self.T = min(T, pop_size)  # 减少邻居大小以增加多样性
+        self.delta = delta  # 降低从邻居选择的概率
+        self.nr = nr  # 大幅增加可更新的解数量
+
+        # 额外新增维护一个外部存档
+        self.external_archive = []
+        self.archive_size = 200  # 外部存档大小
+
+        # 种群和权重等初始化保持不变
+        self.population = []
+        self.weights = []
+        self.neighbors = []
+        self.z = None
+
+        # 性能指标跟踪
+        self.tracking = {
+            'iterations': [],
+            'fronts': [],
+            'metrics': {
+                'igdf': [],
+                'igdx': [],
+                'rpsp': [],
+                'hv': [],
+                'sp': []
+            }
+        }
+
+    def optimize(self, tracking=True, verbose=True):
+        """修改优化流程以使用外部存档"""
+        # 初始化权重向量和邻居
+        self._initialize_weights()
+        self._initialize_neighbors()
+
+        # 初始化种群
+        self._initialize_population()
+
+        # 初始化理想点
+        self.z = np.min([ind['objectives'] for ind in self.population], axis=0)
+
+        # 初始化外部存档
+        self._update_external_archive()
+
+        # 迭代优化
+        for gen in range(self.max_generations):
+            if verbose and gen % 10 == 0:
+                print(f"迭代 {gen}/{self.max_generations}，存档大小: {len(self.external_archive)}")
+
+            # 对每个权重向量
+            for i in range(self.pop_size):
+                # 选择父代
+                if np.random.random() < self.delta:
+                    # 从邻居中选择
+                    p_indices = np.random.choice(self.neighbors[i], 2, replace=False)
+                else:
+                    # 从整个种群中选择
+                    p_indices = np.random.choice(self.pop_size, 2, replace=False)
+
+                # 产生子代
+                child = self._reproduction(p_indices)
+
+                # 评估子代
+                child_obj = np.array(self.problem.evaluate(child))
+
+                # 更新理想点
+                self.z = np.minimum(self.z, child_obj)
+
+                # 更新邻居解
+                self._update_neighbors(i, child, child_obj)
+
+            # 周期性注入外部存档中的非支配解到主种群
+            if gen % 10 == 0 and self.external_archive:
+                # 随机选择一些当前种群个体
+                replace_indices = np.random.choice(self.pop_size, min(20, len(self.external_archive)), replace=False)
+
+                # 用存档中的非支配解替换
+                for i, idx in enumerate(replace_indices):
+                    if i < len(self.external_archive):
+                        self.population[idx]['x'] = self.external_archive[i]['x'].copy()
+                        self.population[idx]['objectives'] = self.external_archive[i]['objectives'].copy()
+
+            # 更新外部存档
+            self._update_external_archive()
+
+            # 跟踪性能指标
+            if tracking and gen % 10 == 0:
+                self._track_performance(gen)
+
+        # 最终评估
+        if tracking:
+            self._track_performance(self.max_generations - 1)
+
+        # 从外部存档中返回Pareto前沿
+        return np.array([ind['objectives'] for ind in self.external_archive])
+
+    def _initialize_weights(self):
+        """完全重写权重向量生成方法"""
+        if self.problem.n_obj == 2:  # 二目标问题使用等间隔生成
+            self.weights = np.zeros((self.pop_size, self.problem.n_obj))
+            for i in range(self.pop_size):
+                # 确保边界点也被包含
+                if i == 0:
+                    self.weights[i] = [0.0001, 0.9999]  # 接近(0,1)
+                elif i == self.pop_size - 1:
+                    self.weights[i] = [0.9999, 0.0001]  # 接近(1,0)
+                else:
+                    # 中间点均匀分布
+                    weight = i / (self.pop_size - 1)
+                    self.weights[i] = [weight, 1 - weight]
+        else:
+            # 多于两个目标时使用原有方法
+            self.weights = self._generate_uniform_weights(self.problem.n_obj, self.pop_size)
+
+    def _generate_uniform_weights(self, n_obj, pop_size):
+        """改进的权重向量生成方法，确保生成足够的权重"""
+
+        # 添加组合数计算函数
+        def choose(n, k):
+            """计算组合数C(n,k)"""
+            if k < 0 or k > n:
+                return 0
+            if k == 0 or k == n:
+                return 1
+
+            result = 1
+            for i in range(k):
+                result = result * (n - i) // (i + 1)
+            return result
+
+        if n_obj == 3:
+            # 计算合适的H值
+            H = 1
+            while choose(H + n_obj - 1, n_obj - 1) < pop_size:
+                H += 1
+
+            # 生成权重向量
+            weights = []
+            for i in range(H + 1):
+                for j in range(H + 1 - i):
+                    k = H - i - j
+                    if k >= 0:  # 确保三个权重的和为H
+                        weight = np.array([i, j, k], dtype=float) / H
+                        weights.append(weight)
+
+            # 如果生成的权重过多，随机选择
+            if len(weights) > pop_size:
+                indices = np.random.choice(len(weights), pop_size, replace=False)
+                weights = [weights[i] for i in indices]
+
+            return np.array(weights)
+        else:
+            # 对于其他维度，使用简单的均匀生成方法
+            weights = []
+            for _ in range(pop_size):
+                weight = np.random.random(n_obj)
+                weight = weight / np.sum(weight)  # 归一化
+                weights.append(weight)
+
+            return np.array(weights)
+
+    def _generate_weight_vectors(self, n_obj, pop_size):
+        """为三目标问题生成系统的权重向量"""
+        # 确定每个维度上的点数
+        h = int((pop_size * 2) ** (1.0 / n_obj))
+
+        # 递归生成权重向量
+        def _generate_recursive(n_remain, weights, depth, result):
+            if depth == n_obj - 1:
+                weights[depth] = n_remain / h
+                result.append(weights.copy())
+                return
+
+            for i in range(n_remain + 1):
+                weights[depth] = i / h
+                _generate_recursive(n_remain - i, weights, depth + 1, result)
+
+        weights_list = []
+        _generate_recursive(h, np.zeros(n_obj), 0, weights_list)
+
+        # 转换为numpy数组
+        weights = np.array(weights_list)
+
+        # 如果生成的权重向量过多，随机选择
+        if len(weights) > pop_size:
+            indices = np.random.choice(len(weights), pop_size, replace=False)
+            weights = weights[indices]
+
+        return weights
+
+    def _initialize_neighbors(self):
+        """初始化邻居关系，添加安全检查"""
+        n = len(self.weights)
+        self.neighbors = []
+
+        # 计算权重向量之间的距离
+        dist = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                dist[i, j] = np.sum((self.weights[i] - self.weights[j]) ** 2)
+
+        # 调整邻居数量，确保不超过种群大小
+        self.T = min(self.T, n - 1)
+
+        # 对每个权重向量找到T个最近的邻居
+        for i in range(n):
+            self.neighbors.append(np.argsort(dist[i])[:self.T])
+
+    def _initialize_population(self):
+        """初始化种群"""
+        self.population = []
+
+        for i in range(self.pop_size):
+            # 随机生成个体
+            x = np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+
+            # 评估个体
+            objectives = np.array(self.problem.evaluate(x))
+
+            # 添加到种群
+            self.population.append({
+                'x': x,
+                'objectives': objectives
+            })
+
+    def _reproduction(self, parent_indices):
+        """增强繁殖操作以产生更多样的后代"""
+        # 获取父代
+        parent1 = self.population[parent_indices[0]]['x']
+        parent2 = self.population[parent_indices[1]]['x']
+
+        # 模拟二进制交叉参数
+        eta_c = 10  # 降低分布指数以增加多样性
+        pc = 0.95  # 增加交叉概率
+
+        # 变异参数
+        eta_m = 10  # 降低分布指数以增加多样性
+        pm = 1.0 / self.problem.n_var  # 每个变量的变异概率
+
+        # 添加额外的多样性机制 - 小概率完全随机解
+        if np.random.random() < 0.05:  # 5%的概率产生随机解
+            return np.array([np.random.uniform(low, up) for low, up in zip(self.problem.xl, self.problem.xu)])
+
+        # 正常交叉操作
+        child = np.zeros(self.problem.n_var)
+        for i in range(self.problem.n_var):
+            if np.random.random() < pc:
+                # 执行交叉
+                if abs(parent1[i] - parent2[i]) > 1e-10:
+                    y1, y2 = min(parent1[i], parent2[i]), max(parent1[i], parent2[i])
+
+                    # 计算beta值
+                    beta = 1.0 + 2.0 * (y1 - self.problem.xl[i]) / (y2 - y1)
+                    alpha = 2.0 - beta ** (-eta_c - 1)
+                    rand = np.random.random()
+
+                    if rand <= 1.0 / alpha:
+                        beta_q = (rand * alpha) ** (1.0 / (eta_c + 1))
+                    else:
+                        beta_q = (1.0 / (2.0 - rand * alpha)) ** (1.0 / (eta_c + 1))
+
+                    # 生成子代
+                    child[i] = 0.5 * ((1 + beta_q) * y1 + (1 - beta_q) * y2)
+                    child[i] = max(self.problem.xl[i], min(self.problem.xu[i], child[i]))
+                else:
+                    child[i] = parent1[i]
+            else:
+                # 随机从一个父代选择
+                child[i] = parent1[i] if np.random.random() < 0.5 else parent2[i]
+
+        # 变异操作
+        for i in range(self.problem.n_var):
+            if np.random.random() < pm:
+                y = child[i]
+                delta1 = (y - self.problem.xl[i]) / (self.problem.xu[i] - self.problem.xl[i])
+                delta2 = (self.problem.xu[i] - y) / (self.problem.xu[i] - self.problem.xl[i])
+
+                rand = np.random.random()
+                mut_pow = 1.0 / (eta_m + 1.0)
+
+                if rand < 0.5:
+                    xy = 1.0 - delta1
+                    val = 2.0 * rand + (1.0 - 2.0 * rand) * (xy ** (eta_m + 1.0))
+                    delta_q = val ** mut_pow - 1.0
+                else:
+                    xy = 1.0 - delta2
+                    val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (xy ** (eta_m + 1.0))
+                    delta_q = 1.0 - val ** mut_pow
+
+                child[i] = y + delta_q * (self.problem.xu[i] - self.problem.xl[i])
+                child[i] = max(self.problem.xl[i], min(self.problem.xu[i], child[i]))
+
+        return child
+
+    def _update_neighbors(self, idx, child_x, child_obj):
+        """改进邻居更新策略"""
+        # 计数更新次数
+        count = 0
+
+        # 随机排序邻居
+        perm = np.random.permutation(self.neighbors[idx])
+
+        # 对每个邻居
+        for j in perm:
+            # 计算切比雪夫距离
+            old_fit = self._tchebycheff(self.population[j]['objectives'], self.weights[j])
+            new_fit = self._tchebycheff(child_obj, self.weights[j])
+
+            # 增加概率性接受机制 - 即使解稍差也有机会被接受
+            if new_fit <= old_fit or np.random.random() < 0.05:  # 5%的概率接受较差的解
+                self.population[j]['x'] = child_x.copy()
+                self.population[j]['objectives'] = child_obj.copy()
+                count += 1
+
+            # 限制更新次数
+            if count >= self.nr:
+                break
+
+    def _tchebycheff(self, objectives, weights):
+        """计算切比雪夫距离"""
+        return np.max(weights * np.abs(objectives - self.z))
+
+    def _get_pareto_front(self):
+        """获取Pareto前沿"""
+        # 提取所有目标值
+        objectives = np.array([ind['objectives'] for ind in self.population])
+
+        # 提取非支配解
+        is_dominated = np.full(self.pop_size, False)
+
+        for i in range(self.pop_size):
+            for j in range(self.pop_size):
+                if i != j and not is_dominated[j]:
+                    if self._dominates(objectives[j], objectives[i]):
+                        is_dominated[i] = True
+                        break
+
+        # 返回非支配解的目标值
+        return objectives[~is_dominated]
+
+    def _get_pareto_set(self):
+        """获取Pareto解集"""
+        # 提取所有目标值和解
+        objectives = np.array([ind['objectives'] for ind in self.population])
+        solutions = np.array([ind['x'] for ind in self.population])
+
+        # 提取非支配解
+        is_dominated = np.full(self.pop_size, False)
+
+        for i in range(self.pop_size):
+            for j in range(self.pop_size):
+                if i != j and not is_dominated[j]:
+                    if self._dominates(objectives[j], objectives[i]):
+                        is_dominated[i] = True
+                        break
+
+        # 返回非支配解的解集
+        return solutions[~is_dominated]
+
+    def _dominates(self, obj1, obj2):
+        """判断obj1是否支配obj2"""
+        return np.all(obj1 <= obj2) and np.any(obj1 < obj2)
+
+    def _track_performance(self, iteration):
+        """跟踪性能指标 - irr风格实现"""
+        # 获取当前Pareto前沿
+        front = self._get_pareto_front()
+
+        # 保存迭代次数和前沿
+        self.tracking['iterations'].append(iteration)
+        self.tracking['fronts'].append(front)
+
+        # 灌溉问题没有真实前沿
+        true_front = self.problem.get_pareto_front()
+
+        # 计算SP指标 (均匀性)
+        if len(front) > 1:
+            # 使用自定义spacing函数
+            sp = self._spacing(front)
+            self.tracking['metrics']['sp'].append(sp)
+        else:
+            self.tracking['metrics']['sp'].append(float('nan'))
+
+        # 计算HV指标 - 适用于灌溉系统二维问题
+        if len(front) > 0:
+            # 设置参考点
+            ref_point = np.max(front, axis=0) * 1.1
+
+            try:
+                # 使用自定义hypervolume函数
+                hv = self._hypervolume(front, ref_point)
+                self.tracking['metrics']['hv'].append(hv)
+            except Exception as e:
+                print(f"HV计算错误: {e}")
+                self.tracking['metrics']['hv'].append(float('nan'))
+        else:
+            self.tracking['metrics']['hv'].append(float('nan'))
+
+    def _update_external_archive(self):
+        """新增：维护外部存档"""
+        # 将当前种群的所有个体加入存档候选集
+        candidates = self.population.copy()
+
+        # 如果已有存档，加入候选集
+        if self.external_archive:
+            candidates.extend(self.external_archive)
+
+        # 提取所有目标值
+        objectives = np.array([ind['objectives'] for ind in candidates])
+
+        # 找出非支配解
+        non_dominated_indices = []
+        for i in range(len(candidates)):
+            is_dominated = False
+            for j in range(len(candidates)):
+                if i != j and self._dominates(objectives[j], objectives[i]):
+                    is_dominated = True
+                    break
+            if not is_dominated:
+                non_dominated_indices.append(i)
+
+        # 创建新的存档
+        self.external_archive = [candidates[i] for i in non_dominated_indices]
+
+        # 如果存档过大，使用拥挤度排序修剪
+        if len(self.external_archive) > self.archive_size:
+            # 提取存档目标值
+            archive_obj = np.array([ind['objectives'] for ind in self.external_archive])
+
+            # 计算拥挤度
+            crowding_distances = np.zeros(len(self.external_archive))
+            # 对每个目标
+            for m in range(self.problem.n_obj):
+                # 按目标排序
+                idx = np.argsort(archive_obj[:, m])
+                # 边界点设为无穷
+                crowding_distances[idx[0]] = float('inf')
+                crowding_distances[idx[-1]] = float('inf')
+
+                # 计算中间点拥挤度
+                for i in range(1, len(idx) - 1):
+                    crowding_distances[idx[i]] += (archive_obj[idx[i + 1], m] - archive_obj[idx[i - 1], m])
+
+            # 按拥挤度排序
+            sorted_indices = np.argsort(crowding_distances)[::-1]
+            # 保留最不拥挤的解
+            self.external_archive = [self.external_archive[i] for i in sorted_indices[:self.archive_size]]
+
+    def _spacing(self, front):
+        """
+        计算Pareto前沿的均匀性指标SP
+        值越小表示分布越均匀
+        """
+        if len(front) < 2:
+            return 0
+
+        # 计算每对解之间的欧几里得距离
+        distances = pdist(front, 'euclidean')
+
+        # 计算平均距离
+        d_mean = np.mean(distances)
+
+        # 计算标准差
+        sp = np.sqrt(np.sum((distances - d_mean) ** 2) / len(distances))
+
+        return sp
+
+    def _hypervolume(self, front, reference_point):
+        """
+        计算超体积指标(HV) - 适用于二维问题
+        前沿与参考点构成的超体积
+        值越大表示质量越高
+        """
         if len(front) == 0:
             return 0
 
@@ -2163,7 +2870,7 @@ def visualize_pareto_fronts(problem, fronts, algorithm_names, save_path, title="
             # 二维问题
             if problem.n_obj == 2:
                 plt.scatter(front[:, 0], front[:, 1],
-                           s=30, color=color, label=alg_name, alpha=0.7)
+                            s=30, color=color, label=alg_name, alpha=0.7)
 
     plt.title(title)
     plt.xlabel('系统成本')
@@ -2176,17 +2883,10 @@ def visualize_pareto_fronts(problem, fronts, algorithm_names, save_path, title="
 
 
 def run_comparison(problem, algorithms, algorithm_params, n_runs=5,
-                   metrics=['sp', 'igd', 'hv'], results_dir='results'):
+                   metrics=['sp', 'hv'], results_dir='results',
+                   pareto_dir='pareto_comparison_results'):
     """
     运行算法比较实验
-
-    参数:
-    problem: 优化问题实例
-    algorithms: 算法类列表
-    algorithm_params: 算法参数字典
-    n_runs: 每个算法运行次数
-    metrics: 性能指标列表
-    results_dir: 结果保存目录
     """
     # 配置字体
     configure_fonts()
@@ -2218,7 +2918,7 @@ def run_comparison(problem, algorithms, algorithm_params, n_runs=5,
 
         # 运行n_runs次
         for run in range(n_runs):
-            print(f"  运行 {run+1}/{n_runs}")
+            print(f"  运行 {run + 1}/{n_runs}")
 
             # 创建算法实例
             algorithm = algorithm_class(problem, **params)
@@ -2247,91 +2947,8 @@ def run_comparison(problem, algorithms, algorithm_params, n_runs=5,
 
                 results[algorithm_name][metric].append(value)
 
-    # 计算最佳前沿
-    best_fronts = {}
-    algorithm_names = []
-
-    for algorithm_name, algorithm_results in results.items():
-        algorithm_names.append(algorithm_name)
-
-        if 'igd' in metrics and problem.get_pareto_front() is not None:
-            # 使用IGD选择最佳前沿
-            valid_indices = [i for i, v in enumerate(algorithm_results['igd']) if not np.isnan(v)]
-            if valid_indices:
-                best_idx = valid_indices[np.argmin([algorithm_results['igd'][i] for i in valid_indices])]
-                best_fronts[algorithm_name] = algorithm_results['fronts'][best_idx]
-            elif algorithm_results['fronts']:
-                best_fronts[algorithm_name] = algorithm_results['fronts'][0]
-        elif 'hv' in metrics:
-            # 使用HV选择最佳前沿
-            valid_indices = [i for i, v in enumerate(algorithm_results['hv']) if not np.isnan(v)]
-            if valid_indices:
-                best_idx = valid_indices[np.argmax([algorithm_results['hv'][i] for i in valid_indices])]
-                best_fronts[algorithm_name] = algorithm_results['fronts'][best_idx]
-            elif algorithm_results['fronts']:
-                best_fronts[algorithm_name] = algorithm_results['fronts'][0]
-        elif algorithm_results['fronts']:
-            # 默认使用第一个前沿
-            best_fronts[algorithm_name] = algorithm_results['fronts'][0]
-
-    # 生成比较图表
-    compare_algorithms(
-        problem,
-        {alg: {metric: results[alg][metric] for metric in metrics} for alg in results},
-        metrics,
-        os.path.join(results_dir, "algorithm_comparison.png"),
-        title=f"{problem.name} 问题算法性能对比"
-    )
-
-    # 可视化Pareto前沿
-    if best_fronts:
-        visualize_pareto_fronts(
-            problem,
-            [best_fronts[alg] for alg in algorithm_names],
-            algorithm_names,
-            os.path.join(results_dir, "pareto_fronts_comparison.png"),
-            title=f"{problem.name} 问题Pareto前沿对比"
-        )
-
-    # 保存指标统计
-    with open(os.path.join(results_dir, "metrics_statistics.txt"), 'w') as f:
-        f.write(f"{problem.name} 问题性能指标统计\n")
-        f.write("=" * 50 + "\n\n")
-
-        for metric in metrics:
-            f.write(f"{metric.upper()} 指标:\n")
-            f.write("-" * 30 + "\n")
-
-            for alg in results:
-                values = [v for v in results[alg][metric] if not np.isnan(v)]
-                if values:
-                    mean = np.mean(values)
-                    std = np.std(values)
-                    min_val = np.min(values)
-                    max_val = np.max(values)
-
-                    f.write(f"{alg}:\n")
-                    f.write(f"  平均值: {mean:.6f}\n")
-                    f.write(f"  标准差: {std:.6f}\n")
-                    f.write(f"  最小值: {min_val:.6f}\n")
-                    f.write(f"  最大值: {max_val:.6f}\n")
-                    f.write(f"  有效样本数: {len(values)}/{n_runs}\n\n")
-                else:
-                    f.write(f"{alg}: 无有效结果\n\n")
-
-            f.write("\n")
-
-        # 运行时间统计
-        f.write("运行时间统计(秒):\n")
-        f.write("-" * 30 + "\n")
-
-        for alg in results:
-            times = results[alg]['runtimes']
-            f.write(f"{alg}:\n")
-            f.write(f"  平均值: {np.mean(times):.4f}\n")
-            f.write(f"  标准差: {np.std(times):.4f}\n")
-            f.write(f"  最小值: {np.min(times):.4f}\n")
-            f.write(f"  最大值: {np.max(times):.4f}\n\n")
+            # 保存每次运行的帕累托前沿
+            save_algorithm_results(algorithm, algorithm_name, pareto_dir)
 
     return results
 
@@ -2346,47 +2963,50 @@ def main():
 
     # 创建灌溉系统优化问题
     irrigation_problem = IrrigationProblem(
-        node_count=23,          # 节点数量
-        first_pressure=49.62,   # 首节点压力
-        first_diameter=500,     # 首管径
-        lgz1=8,                 # 轮灌组参数1
-        lgz2=4,                 # 轮灌组参数2
-        baseline_pressure=23.8, # 基准压力
-        max_variance=5.0        # 最大水头均方差
+        node_count=23,  # 节点数量
+        first_pressure=49.62,  # 首节点压力
+        first_diameter=500,  # 首管径
+        lgz1=8,  # 轮灌组参数1
+        lgz2=4,  # 轮灌组参数2
+        baseline_pressure=23.8,  # 基准压力
+        max_variance=10  # 最大水头均方差
     )
 
-    # 定义要比较的算法 - 增加了新算法
+    # 定义要比较的算法（更新为全部四种）
     algorithms = [
-        MOPSO,
-        MOPSO_CD,
-        NSGAII,      # 新增算法
+        #MOPSO,
+        NSGAII,
+        MOEAD,
+        SPEA2
     ]
 
-    # 定义算法参数 - 增加了新算法的参数
+    # 定义算法参数（添加MOEAD和SPEA2的参数）
     algorithm_params = {
-        'MOPSO': {
-            'pop_size': 100,
-            'max_iterations': 100,
-            'w': 0.7,
-            'c1': 1.5,
-            'c2': 1.5
+        "MOPSO": {  # 使用新的动态参数接口
+            "pop_size": 200,
+            "max_iterations": 200,
+            "w_init": 0.9, "w_end": 0.4,  # 动态惯性权重
+            "c1_init": 1.5, "c1_end": 1.5,  # (等效于 c1=1.5)
+            "c2_init": 1.5, "c2_end": 1.5,  # (等效于 c2=1.5)
+            "use_archive": True,
+            "archive_size": 150  # 标准存档大小
         },
-        'MOPSO_CD': {
-            'pop_size': 100,
-            'max_iterations': 100,
-            'w_init': 0.9,
-            'w_end': 0.4,
-            'c1_init': 2.5,
-            'c1_end': 0.5,
-            'c2_init': 0.5,
-            'c2_end': 2.5,
-            'archive_size': 100,
-            'mutation_rate': 0.1
+        "NSGAII": {
+            "pop_size": 200,
+            "max_generations": 200
         },
-        'NSGAII': {              # 新增NSGAII算法参数
-            'pop_size': 200,
-            'max_generations': 100
+        "MOEAD": {
+            "pop_size": 300,
+            "max_generations": 200,
+            "T": 15,
+            "delta": 0.8,
+            "nr": 10
         },
+        "SPEA2": {
+            "pop_size": 100,
+            "archive_size": 100,
+            "max_generations": 200
+        }
     }
 
     # 创建结果目录
@@ -2404,9 +3024,10 @@ def main():
         irrigation_problem,
         algorithms,
         algorithm_params,
-        n_runs=3,
+        n_runs=1,
         metrics=['sp', 'hv'],
-        results_dir=results_dir
+        results_dir=results_dir,
+        pareto_dir=pareto_dir
     )
 
     # 合并多次运行的帕累托前沿

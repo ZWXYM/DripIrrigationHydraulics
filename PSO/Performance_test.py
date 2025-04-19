@@ -9,16 +9,14 @@ import random
 import time
 import logging
 from tqdm import tqdm
-from scipy.spatial.distance import cdist, pdist, euclidean
+from scipy.spatial.distance import cdist, pdist
 from matplotlib import rcParams
 import platform
 import os
 import threading
 import concurrent.futures
-from matplotlib.ticker import MaxNLocator
 from queue import Queue
 import traceback
-from sklearn.cluster import KMeans
 
 # ====================== 通用优化框架 ======================
 
