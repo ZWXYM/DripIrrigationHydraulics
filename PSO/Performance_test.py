@@ -18,6 +18,7 @@ import concurrent.futures
 from queue import Queue
 import traceback
 
+
 # ====================== 通用优化框架 ======================
 
 class Problem:
@@ -661,7 +662,7 @@ class CASMOPSO:
             if self.problem.n_obj == 2 and i < self.pop_size // 3:
                 # 为前1/3的粒子均匀分布f1
                 particle.position[0] = self.problem.xl[0] + (i / (self.pop_size // 3)) * (
-                            self.problem.xu[0] - self.problem.xl[0])
+                        self.problem.xu[0] - self.problem.xl[0])
 
             # 如果是ZDT4，使用特殊初始化
             if self.problem_type == "ZDT4" and i >= self.pop_size // 2:
@@ -3507,7 +3508,7 @@ def main():
     ]
 
     print(f"已加载 {len(problems)} 个测试问题: {', '.join([p.name for p in problems])}")
-    #NSGAII,MOEAD_Modified,SPEA2_Modified
+    # NSGAII,MOEAD_Modified,SPEA2_Modified
     # 定义算法
     algorithms = [
         CASMOPSO,  # 使用新的增强版算法
