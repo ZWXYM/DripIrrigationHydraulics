@@ -1,5 +1,3 @@
-# CAS_MOPSO
-# 拥挤度自适应平滑多目标粒子群优化算法 (Crowding-based Adaptive Smoothing Multi-objective Particle Swarm Optimization)
 import json
 import math
 import os
@@ -1529,8 +1527,8 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
     # 保存帕累托前沿到文件
     try:
         pareto_front_values = np.array([p.best_fitness for p in non_dominated_front])
-        save_pareto_front(pareto_front_values, "CASMOPSO_SHUANG")
-        save_pareto_solutions(non_dominated_front, "CASMOPSO_SHUANG")
+        save_pareto_front(pareto_front_values, "PSO_SHUANG")
+        save_pareto_solutions(non_dominated_front, "PSO_SHUANG")
         print("帕累托解集已成功保存")
     except Exception as e:
         print(f"保存帕累托解集时出错: {str(e)}")
