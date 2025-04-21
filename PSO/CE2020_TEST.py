@@ -11,8 +11,8 @@ import logging
 from tqdm import tqdm
 import os
 from scipy.spatial.distance import cdist
-
-
+import copy  # 新增: 用于深拷贝跟踪数据
+import scipy.interpolate
 # ====================== CEC2020 测试函数实现 ======================
 class Problem:
     """多目标优化问题基类"""
@@ -37,7 +37,6 @@ class Problem:
     def get_pareto_set(self):
         """获取真实的Pareto解集，如果可用"""
         return self.pareto_set
-
 
 
 class TP1(Problem):
@@ -80,7 +79,6 @@ class TP1(Problem):
         self.pareto_set[:, 0] = f1  # x[0]等于f1
 
 
-
 class TP2(Problem):
     """
     CEC2020 TP2 测试函数
@@ -98,32 +96,29 @@ class TP2(Problem):
         g = 1 + 9 * np.sum(x[1:]) / (n - 1)
         # 第一个目标
         f1 = x[0]
-        # 第二个目标
-        # 修正f2的计算，确保使用正确的g值
-        f2 = g * (1 - (f1 / g) ** 0.5 - (f1 / g) * np.sin(10 * np.pi * f1))
-        # 第三个目标
-        # 修正f3的计算，确保使用正确的g值
-        f3 = g * (1 - (f1 / g) ** 2)  # 注意：原始定义是f3 = 1 - (f1/g)**2，这里似乎应与f2类似带g
-        # 但为了保持与原代码生成PF的一致性，暂时保留原PF生成逻辑
-        # 实际评估函数用带g的，PF生成用不带g的，这可能导致IGD计算偏差
-        # 如果需要精确，评估和PF生成函数需要统一
+        # 第二个目标 - 标准CEC2020定义
+        f2 = g * (1 - np.sqrt(f1 / g) - (f1 / g) * np.sin(10 * np.pi * f1))
+        # 第三个目标 - 标准CEC2020定义
+        f3 = g * (1 - (f1 / g) ** 2)
+
         return [f1, f2, f3]
 
     def _generate_pf(self, n_points):
-        """生成TP2的近似Pareto前沿和解集"""
+        """生成TP2的标准Pareto前沿"""
         # 使用更多的点以捕获分离的前沿
         f1 = np.linspace(0, 1, n_points)
-        # 计算f2（分段函数，假设g=1时的前沿）
+
+        # 假设g=1时的前沿
         f2 = 1 - np.sqrt(f1) - f1 * np.sin(10 * np.pi * f1)
-        # 计算f3（假设g=1时的前沿）
         f3 = 1 - f1 ** 2
-        # 存储前沿（这只是一个近似）
+
+        # 存储前沿
         self.pareto_front = np.column_stack((f1, f2, f3))
+
         # 生成参考Pareto解集
         # 对于TP2，Pareto最优解的特征是x[1:n]都为0 (使得g=1)
         self.pareto_set = np.zeros((n_points, self.n_var))
         self.pareto_set[:, 0] = f1  # x[0]等于f1
-
 
 
 class TP3(Problem):
@@ -205,7 +200,6 @@ class TP3(Problem):
         # 注意：生成的解可能超出 [-1, 1] 的界限，但这是基于最优条件的理论解集
 
 
-
 class TP4(Problem):
     """
     CEC2020 TP4 测试函数（基于CEC2009 UF9）
@@ -280,7 +274,6 @@ class TP4(Problem):
             x1 = self.pareto_set[i, 1]
             for j in range(2, n):  # j 是变量索引
                 self.pareto_set[i, j] = 2 * x1 * np.sin(2 * np.pi * x0 + (j + 1) * np.pi / n)
-
 
 
 class TP5(Problem):
@@ -367,7 +360,6 @@ class TP5(Problem):
                 self.pareto_set[i, j] = np.sin(6 * np.pi * x0 + (j + 1) * np.pi / n)
 
 
-
 class TP6(Problem):
     """
     CEC2020 TP6 测试函数
@@ -385,17 +377,11 @@ class TP6(Problem):
         M = self.n_obj  # 目标数 M=3
         k = n - M + 1  # k = n - 3 + 1 = n - 2
 
-        # 计算g函数 (作用于最后k个变量, 即索引 M-1 到 n-1)
-        # 索引是 2 到 n-1
+        # 计算g函数 (作用于最后k个变量)
         g = 100 * (k + np.sum((x[M - 1:] - 0.5) ** 2 - np.cos(20 * np.pi * (x[M - 1:] - 0.5))))
 
-        # 计算目标函数
+        # 直接计算目标函数 - 移除冗余计算
         f = np.zeros(M)
-        prod = 1.0
-        for i in range(M - 1):  # i = 0, 1
-            f[i] = 0.5 * prod * x[i]
-            prod *= (1 - x[i])  # 更新 prod
-        # 修正 DTLZ1 的目标函数计算逻辑
         f[0] = 0.5 * x[0] * x[1] * (1 + g)
         f[1] = 0.5 * x[0] * (1 - x[1]) * (1 + g)
         f[2] = 0.5 * (1 - x[0]) * (1 + g)
@@ -439,7 +425,6 @@ class TP6(Problem):
         M = self.n_obj
         if self.n_var >= M:
             self.pareto_set[:, M - 1:] = 0.5
-
 
 
 class TP7(Problem):
@@ -508,7 +493,6 @@ class TP7(Problem):
         M = self.n_obj
         if self.n_var >= M:
             self.pareto_set[:, M - 1:] = 0.5
-
 
 
 class TP8(Problem):
@@ -585,7 +569,6 @@ class TP8(Problem):
         M = self.n_obj
         if self.n_var >= M:
             self.pareto_set[:, M - 1:] = 0.0
-
 
 
 class TP9(Problem):
@@ -677,7 +660,6 @@ class TP9(Problem):
         self.pareto_set[:, 2:] = 0.0
 
 
-
 class TP10(Problem):
     """
     CEC2020 TP10 测试函数
@@ -760,7 +742,6 @@ class TP10(Problem):
         if self.n_var >= 4: self.pareto_set[:, 3] = f2_pf
         if self.n_var >= 5: self.pareto_set[:, 4] = 0.0
         if self.n_var >= 6: self.pareto_set[:, 5] = 0.0
-
 
 
 class TP11(Problem):
@@ -935,11 +916,11 @@ class CASMOPSO:
     """增强版多目标粒子群优化算法"""
 
     # 修改 __init__ 以添加速度限制参数 k_vmax
-    def __init__(self, problem, pop_size=150, max_iterations=300,
-                 w_init=0.9, w_end=0.4, c1_init=2.5, c1_end=0.5,
-                 c2_init=0.5, c2_end=2.5, use_archive=True,
-                 archive_size=300, mutation_rate=0.1, adaptive_grid_size=15,
-                 k_vmax=0.5):  # 新增: 速度限制因子
+    def __init__(self, problem, pop_size, max_iterations,
+                 w_init, w_end, c1_init, c1_end,
+                 c2_init, c2_end,
+                 archive_size, mutation_rate, adaptive_grid_size,
+                 k_vmax,use_archive=True):  # 新增: 速度限制因子
         """
         初始化 CASMOPSO 算法 (包含建议的修改)
         ... (其他参数文档保持不变) ...
@@ -1775,7 +1756,8 @@ class MOPSO:
             try:
                 self.tracking['metrics']['hv'].append(PerformanceIndicators.hypervolume(front, ref_point))
             except Exception as e:
-                print(f"HV计算错误: {e}"); self.tracking['metrics']['hv'].append(float('nan'))
+                print(f"HV计算错误: {e}")
+                self.tracking['metrics']['hv'].append(float('nan'))
         else:
             self.tracking['metrics']['hv'].append(float('nan'))
 
@@ -2188,10 +2170,10 @@ class NSGAII:
     """NSGA-II算法实现"""
 
     def __init__(self, problem, pop_size=100, max_generations=100,
-                 pc=0.9,          # 交叉概率 (Crossover probability)
-                 eta_c=20,        # SBX 交叉分布指数 (Distribution index for SBX)
-                 pm_ratio=1.0,    # 变异概率因子 (pm = pm_ratio / n_var)
-                 eta_m=20):       # 多项式变异分布指数 (Distribution index for polynomial mutation)
+                 pc=0.9,  # 交叉概率 (Crossover probability)
+                 eta_c=20,  # SBX 交叉分布指数 (Distribution index for SBX)
+                 pm_ratio=1.0,  # 变异概率因子 (pm = pm_ratio / n_var)
+                 eta_m=20):  # 多项式变异分布指数 (Distribution index for polynomial mutation)
         """
         初始化NSGA-II算法
         problem: 优化问题实例
@@ -2221,7 +2203,6 @@ class NSGAII:
             'iterations': [], 'fronts': [],
             'metrics': {'igdf': [], 'igdx': [], 'rpsp': [], 'hv': [], 'sp': []}
         }
-
 
     def optimize(self, tracking=True, verbose=True):
         """执行优化过程"""
@@ -2347,12 +2328,12 @@ class NSGAII:
 
     def _crowding_distance_assignment(self, front):
         """分配拥挤度 (增强分母稳定性)"""
-        if not front: # 检查 front 是否为空
+        if not front:  # 检查 front 是否为空
             return
 
         n = len(front)
         for p in front:
-            p['crowding_distance'] = 0.0 # 确保初始化为浮点数
+            p['crowding_distance'] = 0.0  # 确保初始化为浮点数
 
         # 提取 fitnesses
         fitnesses = np.array([ind['objectives'] for ind in front])
@@ -2373,14 +2354,14 @@ class NSGAII:
 
                 # --- 修改: 为分母添加 epsilon ---
                 # norm = f_max - f_min if f_max > f_min else 1.0 # 原来的方式
-                epsilon = 1e-9 # 一个很小的值
-                norm = (f_max - f_min) + epsilon # 加上 epsilon 避免严格为0
+                epsilon = 1e-9  # 一个很小的值
+                norm = (f_max - f_min) + epsilon  # 加上 epsilon 避免严格为0
                 # --- 修改结束 ---
 
                 for i in range(1, n - 1):
                     # 使用原始 front 列表中的索引来更新距离
-                    prev_idx = sorted_indices[i-1]
-                    next_idx = sorted_indices[i+1]
+                    prev_idx = sorted_indices[i - 1]
+                    next_idx = sorted_indices[i + 1]
                     current_idx = sorted_indices[i]
 
                     numerator = fitnesses[next_idx, m] - fitnesses[prev_idx, m]
@@ -2412,12 +2393,12 @@ class NSGAII:
 
         # 确保进行偶数次交叉，生成 pop_size 个子代
         parent_indices = list(range(len(parents)))
-        random.shuffle(parent_indices) # 打乱父代顺序
+        random.shuffle(parent_indices)  # 打乱父代顺序
 
         for i in range(0, self.pop_size, 2):
             # 选择父代索引，处理最后一个父代可能落单的情况
             idx1 = parent_indices[i]
-            idx2 = parent_indices[i + 1] if (i + 1) < len(parents) else parent_indices[0] # 落单则与第一个配对
+            idx2 = parent_indices[i + 1] if (i + 1) < len(parents) else parent_indices[0]  # 落单则与第一个配对
 
             # 深拷贝父代以产生子代（避免修改原始父代）
             p1 = parents[idx1].copy()
@@ -2426,18 +2407,17 @@ class NSGAII:
             p1['x'] = parents[idx1]['x'].copy()
             p2['x'] = parents[idx2]['x'].copy()
 
-
             # SBX交叉
             # 使用 self.pc 和 self.eta_c
             if random.random() < self.pc:
                 for j in range(n_var):
-                    if random.random() < 0.5: # 对每个变量 50% 概率交叉
+                    if random.random() < 0.5:  # 对每个变量 50% 概率交叉
                         y1, y2 = p1['x'][j], p2['x'][j]
                         if abs(y1 - y2) > 1e-10:
-                            if y1 > y2: y1, y2 = y2, y1 # 确保 y1 <= y2
+                            if y1 > y2: y1, y2 = y2, y1  # 确保 y1 <= y2
 
                             rand = random.random()
-                            beta = 1.0 + (2.0 * (y1 - xl[j]) / (y2 - y1)) if (y2-y1)>1e-10 else 1.0
+                            beta = 1.0 + (2.0 * (y1 - xl[j]) / (y2 - y1)) if (y2 - y1) > 1e-10 else 1.0
                             alpha = 2.0 - beta ** -(self.eta_c + 1.0)
                             if rand <= (1.0 / alpha):
                                 beta_q = (rand * alpha) ** (1.0 / (self.eta_c + 1.0))
@@ -2457,20 +2437,19 @@ class NSGAII:
                             else:
                                 p1['x'][j], p2['x'][j] = c2, c1
 
-
             # 多项式变异
             # 使用 self.pm 和 self.eta_m
             for child in [p1, p2]:
                 for j in range(n_var):
-                    if random.random() < self.pm: # 使用 self.pm
+                    if random.random() < self.pm:  # 使用 self.pm
                         y = child['x'][j]
-                        delta1 = (y - xl[j]) / (xu[j] - xl[j]) if (xu[j]-xl[j])>1e-10 else 0.5
-                        delta2 = (xu[j] - y) / (xu[j] - xl[j]) if (xu[j]-xl[j])>1e-10 else 0.5
-                        delta1 = np.clip(delta1, 0, 1) # 确保在[0,1]
-                        delta2 = np.clip(delta2, 0, 1) # 确保在[0,1]
+                        delta1 = (y - xl[j]) / (xu[j] - xl[j]) if (xu[j] - xl[j]) > 1e-10 else 0.5
+                        delta2 = (xu[j] - y) / (xu[j] - xl[j]) if (xu[j] - xl[j]) > 1e-10 else 0.5
+                        delta1 = np.clip(delta1, 0, 1)  # 确保在[0,1]
+                        delta2 = np.clip(delta2, 0, 1)  # 确保在[0,1]
 
                         rand = random.random()
-                        mut_pow = 1.0 / (self.eta_m + 1.0) # 使用 self.eta_m
+                        mut_pow = 1.0 / (self.eta_m + 1.0)  # 使用 self.eta_m
 
                         if rand < 0.5:
                             xy = 1.0 - delta1
@@ -2484,7 +2463,7 @@ class NSGAII:
                             delta_q = 1.0 - val ** mut_pow
 
                         y = y + delta_q * (xu[j] - xl[j])
-                        child['x'][j] = np.clip(y, xl[j], xu[j]) # 边界处理
+                        child['x'][j] = np.clip(y, xl[j], xu[j])  # 边界处理
 
             # 重置子代的评估状态
             p1['objectives'] = None
@@ -2497,9 +2476,9 @@ class NSGAII:
             offspring.append(p1)
             # 确保只添加 pop_size 个子代
             if len(offspring) < self.pop_size:
-                 offspring.append(p2)
+                offspring.append(p2)
 
-        return offspring[:self.pop_size] # 返回精确 pop_size 个子代
+        return offspring[:self.pop_size]  # 返回精确 pop_size 个子代
 
     def _environmental_selection(self, fronts):
         """环境选择"""
@@ -3201,6 +3180,426 @@ class PerformanceIndicators:
             return float('nan')
 
 
+def get_optimal_casmopso_params(problem_name):
+    """为不同的问题返回最优CASMOPSO参数"""
+
+    # 基础参数配置
+    base_params = {
+        "pop_size": 200,
+        "max_iterations": 400,
+        "w_init": 0.9,
+        "w_end": 0.4,
+        "c1_init": 2.5,
+        "c1_end": 0.5,
+        "c2_init": 0.5,
+        "c2_end": 2.5,
+        "use_archive": True,
+        "archive_size": 300,
+        "mutation_rate": 0.1,
+        "adaptive_grid_size": 15,
+        "k_vmax": 0.5
+    }
+
+    # 问题特定参数配置
+    problem_specific_params = {
+        "TP1": {
+            "pop_size": 200,
+            "max_iterations": 400,
+            "w_init": 0.9, "w_end": 0.4,
+            "c1_init": 2.0, "c1_end": 0.8,
+            "c2_init": 0.8, "c2_end": 2.0,
+            "archive_size": 300,
+            "mutation_rate": 0.08,
+            "adaptive_grid_size": 15,
+            "k_vmax": 0.5
+        },
+        "TP2": {
+            "pop_size": 250,
+            "max_iterations": 400,
+            "w_init": 0.9, "w_end": 0.3,
+            "c1_init": 2.2, "c1_end": 0.6,
+            "c2_init": 0.6, "c2_end": 2.2,
+            "archive_size": 350,
+            "mutation_rate": 0.12,
+            "adaptive_grid_size": 20,
+            "k_vmax": 0.45
+        },
+        "TP3": {
+            "pop_size": 300,
+            "max_iterations": 400,
+            "w_init": 0.8, "w_end": 0.3,
+            "c1_init": 2.2, "c1_end": 0.5,
+            "c2_init": 0.6, "c2_end": 2.5,
+            "archive_size": 400,
+            "mutation_rate": 0.15,
+            "adaptive_grid_size": 25,
+            "k_vmax": 0.4
+        },
+        "TP4": {
+            "pop_size": 250,
+            "max_iterations": 400,
+            "w_init": 0.8, "w_end": 0.35,
+            "c1_init": 2.0, "c1_end": 0.6,
+            "c2_init": 0.6, "c2_end": 2.3,
+            "archive_size": 350,
+            "mutation_rate": 0.13,
+            "adaptive_grid_size": 20,
+            "k_vmax": 0.45
+        },
+        "TP5": {
+            "pop_size": 400,
+            "max_iterations": 400,
+            "w_init": 0.95, "w_end": 0.3,
+            "c1_init": 2.5, "c1_end": 0.4,
+            "c2_init": 0.5, "c2_end": 2.7,
+            "archive_size": 500,
+            "mutation_rate": 0.2,
+            "adaptive_grid_size": 30,
+            "k_vmax": 0.6
+        },
+        "TP6": {
+            "pop_size": 300,
+            "max_iterations": 400,
+            "w_init": 0.9, "w_end": 0.4,
+            "c1_init": 2.2, "c1_end": 0.7,
+            "c2_init": 0.7, "c2_end": 2.5,
+            "archive_size": 400,
+            "mutation_rate": 0.18,
+            "adaptive_grid_size": 20,
+            "k_vmax": 0.5
+        },
+        "TP7": {
+            "pop_size": 350,
+            "max_iterations": 400,
+            "w_init": 0.8, "w_end": 0.35,
+            "c1_init": 2.0, "c1_end": 0.6,
+            "c2_init": 0.8, "c2_end": 2.3,
+            "archive_size": 400,
+            "mutation_rate": 0.12,
+            "adaptive_grid_size": 25,
+            "k_vmax": 0.4
+        },
+        "TP8": {
+            "pop_size": 300,
+            "max_iterations": 400,
+            "w_init": 0.9, "w_end": 0.3,
+            "c1_init": 2.3, "c1_end": 0.6,
+            "c2_init": 0.6, "c2_end": 2.3,
+            "archive_size": 450,
+            "mutation_rate": 0.15,
+            "adaptive_grid_size": 25,
+            "k_vmax": 0.45
+        },
+        "TP9": {
+            "pop_size": 350,
+            "max_iterations": 400,
+            "w_init": 0.85, "w_end": 0.35,
+            "c1_init": 2.2, "c1_end": 0.7,
+            "c2_init": 0.7, "c2_end": 2.2,
+            "archive_size": 400,
+            "mutation_rate": 0.1,
+            "adaptive_grid_size": 20,
+            "k_vmax": 0.4
+        },
+        "TP10": {
+            "pop_size": 400,
+            "max_iterations": 400,
+            "w_init": 0.75, "w_end": 0.3,
+            "c1_init": 1.8, "c1_end": 0.6,
+            "c2_init": 0.7, "c2_end": 2.0,
+            "archive_size": 300,
+            "mutation_rate": 0.08,
+            "adaptive_grid_size": 15,
+            "k_vmax": 0.3
+        },
+        "TP11": {
+            "pop_size": 400,
+            "max_iterations": 400,
+            "w_init": 0.95, "w_end": 0.3,
+            "c1_init": 2.0, "c1_end": 0.6,
+            "c2_init": 0.8, "c2_end": 2.5,
+            "archive_size": 450,
+            "mutation_rate": 0.25,
+            "adaptive_grid_size": 30,
+            "k_vmax": 0.6
+        }
+    }
+
+    # 返回问题特定参数或基础参数
+    return problem_specific_params.get(problem_name, base_params)
+
+
+class DataExporter:
+    """数据导出工具类，用于收集和导出多目标优化结果"""
+
+    def __init__(self, export_dir="exported_data"):
+        """
+        初始化数据导出器
+
+        export_dir: 导出数据的目录
+        """
+        self.export_dir = export_dir
+        if not os.path.exists(export_dir):
+            os.makedirs(export_dir)
+
+        # 主目录创建
+        self.performance_dir = os.path.join(export_dir, "performance")
+        self.pareto_front_dir = os.path.join(export_dir, "pareto_fronts")
+        self.pareto_set_dir = os.path.join(export_dir, "pareto_sets")
+
+        for directory in [self.performance_dir, self.pareto_front_dir, self.pareto_set_dir]:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+
+    def export_generational_performance_all_runs(self, problem_name, algorithm_name, all_tracking_data,
+                                                 algorithm_obj=None):
+        """
+        导出所有运行的完整代际性能数据 - 确保每代都有数据
+
+        problem_name: 问题名称
+        algorithm_name: 算法名称
+        all_tracking_data: 所有运行的跟踪数据列表
+        algorithm_obj: 算法对象，用于获取每步运算次数
+        """
+        # 创建问题特定的子文件夹
+        problem_dir = os.path.join(self.performance_dir, problem_name)
+        if not os.path.exists(problem_dir):
+            os.makedirs(problem_dir)
+
+        # 获取算法每步的运算次数倍率
+        comp_per_iter = 1
+        if hasattr(algorithm_obj, 'pop_size'):
+            comp_per_iter = algorithm_obj.pop_size
+
+        # 为每次运行创建单独的性能记录文件
+        for run_id, tracking_data in enumerate(all_tracking_data):
+            file_path = os.path.join(problem_dir, f"{algorithm_name}_run_{run_id + 1}_generational.txt")
+
+            with open(file_path, 'w') as f:
+                f.write(f"# 问题: {problem_name}, 算法: {algorithm_name}, 运行: {run_id + 1} 的代际性能数据\n")
+                f.write("# 格式: 迭代次数, 运算次数, IGDF, IGDX, RPSP, HV, SP\n\n")
+
+                # 检查是否有迭代数据
+                if 'iterations' not in tracking_data or not tracking_data['iterations']:
+                    f.write("# 无迭代数据\n")
+                    continue
+
+                # 确定最大迭代次数
+                max_iterations = 0
+                if algorithm_obj and hasattr(algorithm_obj, 'max_iterations'):
+                    max_iterations = algorithm_obj.max_iterations
+                elif algorithm_obj and hasattr(algorithm_obj, 'max_generations'):
+                    max_iterations = algorithm_obj.max_generations
+                else:
+                    # 使用跟踪数据中的最大迭代次数
+                    if tracking_data['iterations']:
+                        max_iterations = max(tracking_data['iterations'])
+
+                # 获取原始跟踪数据
+                orig_iterations = tracking_data['iterations']
+                metrics = tracking_data['metrics']
+
+                # 生成完整的迭代序列 (0, 1, 2, ..., max_iterations)
+                complete_iterations = list(range(max_iterations + 1))
+
+                # 为每个指标创建完整的数据集
+                complete_metrics = {}
+                for metric in ['igdf', 'igdx', 'rpsp', 'hv', 'sp']:
+                    if metric in metrics and metrics[metric]:
+                        # 使用线性插值生成完整的指标序列
+                        from scipy.interpolate import interp1d
+
+                        # 获取原始数据
+                        x = np.array(orig_iterations)
+                        y = np.array(metrics[metric])
+
+                        # 创建插值函数 - 如果原始数据至少有2个点
+                        if len(x) >= 2:
+                            # 处理重复的x值，可能导致插值错误
+                            if len(x) != len(np.unique(x)):
+                                # 如有重复，取平均值
+                                unique_x, indices = np.unique(x, return_index=True)
+                                unique_y = np.array([np.mean(y[x == val]) for val in unique_x])
+                                x = unique_x
+                                y = unique_y
+
+                            # 创建插值函数 - 为避免终点外插，限制范围
+                            interp_func = interp1d(x, y, kind='linear',
+                                                   bounds_error=False,
+                                                   fill_value=(y[0], y[-1]))  # 超出范围使用端点值
+
+                            # 应用插值函数，但仅在原始数据范围内
+                            min_x, max_x = min(x), max(x)
+                            complete_metrics[metric] = []
+
+                            for iter_num in complete_iterations:
+                                if iter_num < min_x:
+                                    # 小于最小记录点，使用第一个记录值
+                                    complete_metrics[metric].append(y[0])
+                                elif iter_num > max_x:
+                                    # 大于最大记录点，使用最后一个记录值
+                                    complete_metrics[metric].append(y[-1])
+                                elif iter_num in x:
+                                    # 如果是原始数据点，直接使用原值
+                                    idx = np.where(x == iter_num)[0][0]
+                                    complete_metrics[metric].append(y[idx])
+                                else:
+                                    # 使用插值
+                                    complete_metrics[metric].append(float(interp_func(iter_num)))
+                        else:
+                            # 如果只有一个数据点，所有迭代使用相同值
+                            complete_metrics[metric] = [y[0]] * len(complete_iterations)
+                    else:
+                        # 没有此指标数据
+                        complete_metrics[metric] = [float('nan')] * len(complete_iterations)
+
+                # 导出完整的迭代数据
+                for i, iteration in enumerate(complete_iterations):
+                    # 计算运算次数
+                    computation_count = iteration * comp_per_iter
+
+                    # 构造数据行
+                    line = f"{iteration}, {computation_count}"
+
+                    for metric in ['igdf', 'igdx', 'rpsp', 'hv', 'sp']:
+                        if metric in complete_metrics:
+                            line += f", {complete_metrics[metric][i]}"
+                        else:
+                            line += ", NaN"
+
+                    f.write(line + "\n")
+
+                # 添加解集信息
+                f.write("\n# 最终解集大小信息\n")
+                if 'fronts' in tracking_data and tracking_data['fronts']:
+                    last_front = tracking_data['fronts'][-1]
+                    f.write(f"# 最终帕累托前沿大小: {len(last_front)} 个解\n")
+
+    def export_pareto_front(self, problem_name, problem, algorithms_results):
+        """
+        导出帕累托前沿数据
+
+        problem_name: 问题名称
+        problem: 问题对象
+        algorithms_results: 各算法结果
+        """
+        file_path = os.path.join(self.pareto_front_dir, f"{problem_name}_pareto_fronts.txt")
+
+        with open(file_path, 'w') as f:
+            f.write(f"# 问题: {problem_name} 的帕累托前沿数据\n\n")
+
+            # 导出真实帕累托前沿
+            if hasattr(problem, 'pareto_front') and problem.pareto_front is not None:
+                f.write(f"# 真实帕累托前沿 (共 {len(problem.pareto_front)} 个点)\n")
+                f.write("# 格式: f1, f2, f3\n")
+                for point in problem.pareto_front:
+                    f.write(f"{', '.join(map(str, point))}\n")
+            else:
+                f.write("# 真实帕累托前沿不可用\n")
+
+            # 导出各算法的帕累托前沿
+            for algo_name, result in algorithms_results.items():
+                if "pareto_front" in result:
+                    pareto_front = result["pareto_front"]
+                    f.write(f"\n\n# {algo_name} 算法的帕累托前沿 (共 {len(pareto_front)} 个点)\n")
+                    f.write("# 格式: f1, f2, f3\n")
+                    for point in pareto_front:
+                        f.write(f"{', '.join(map(str, point))}\n")
+
+                # 导出所有运行的帕累托前沿
+                if "pareto_fronts" in result:
+                    for run_id, front in enumerate(result["pareto_fronts"]):
+                        f.write(f"\n\n# {algo_name} 算法运行 {run_id + 1} 的帕累托前沿 (共 {len(front)} 个点)\n")
+                        f.write("# 格式: f1, f2, f3\n")
+                        for point in front:
+                            f.write(f"{', '.join(map(str, point))}\n")
+
+    def export_pareto_set(self, problem_name, problem, algorithms_results):
+        """
+        导出帕累托解集数据
+
+        problem_name: 问题名称
+        problem: 问题对象
+        algorithms_results: 各算法结果
+        """
+        file_path = os.path.join(self.pareto_set_dir, f"{problem_name}_pareto_sets.txt")
+
+        with open(file_path, 'w') as f:
+            f.write(f"# 问题: {problem_name} 的帕累托解集数据\n\n")
+
+            # 导出真实帕累托解集
+            if hasattr(problem, 'pareto_set') and problem.pareto_set is not None:
+                f.write(f"# 真实帕累托解集 (共 {len(problem.pareto_set)} 个解)\n")
+                f.write(f"# 格式: x1, x2, ..., x{problem.n_var}\n")
+                for solution in problem.pareto_set:
+                    f.write(f"{', '.join(map(str, solution))}\n")
+            else:
+                f.write("# 真实帕累托解集不可用\n")
+
+            # 导出各算法的帕累托解集
+            for algo_name, result in algorithms_results.items():
+                if "pareto_set" in result:
+                    pareto_set = result["pareto_set"]
+                    f.write(f"\n\n# {algo_name} 算法的帕累托解集 (共 {len(pareto_set)} 个解)\n")
+                    f.write(f"# 格式: x1, x2, ..., x{problem.n_var}\n")
+                    for solution in pareto_set:
+                        f.write(f"{', '.join(map(str, solution))}\n")
+
+                # 导出所有运行的帕累托解集
+                if "pareto_sets" in result:
+                    for run_id, pareto_set in enumerate(result["pareto_sets"]):
+                        f.write(f"\n\n# {algo_name} 算法运行 {run_id + 1} 的帕累托解集 (共 {len(pareto_set)} 个解)\n")
+                        f.write(f"# 格式: x1, x2, ..., x{problem.n_var}\n")
+                        for solution in pareto_set:
+                            f.write(f"{', '.join(map(str, solution))}\n")
+
+    def export_summary_metrics(self, problem_name, algorithms_results):
+        """
+        导出汇总性能指标 - 按问题组织子文件夹
+
+        problem_name: 问题名称
+        algorithms_results: 各算法结果
+        """
+        # 创建问题特定的子文件夹
+        problem_dir = os.path.join(self.performance_dir, problem_name)
+        if not os.path.exists(problem_dir):
+            os.makedirs(problem_dir)
+
+        file_path = os.path.join(problem_dir, "summary_metrics.txt")
+
+        with open(file_path, 'w') as f:
+            f.write(f"# 问题: {problem_name} 的汇总性能指标\n\n")
+            f.write("# 格式: 算法, 指标, 平均值, 标准差, 最小值, 最大值\n\n")
+
+            for algo_name, result in algorithms_results.items():
+                if "metrics" not in result:
+                    continue
+
+                metrics = result["metrics"]
+                f.write(f"# {algo_name} 算法的性能指标\n")
+
+                for metric in ['igdf', 'igdx', 'rpsp', 'hv', 'sp']:
+                    if metric in metrics and metrics[metric]:
+                        values = [v for v in metrics[metric] if not np.isnan(v)]
+                        if values:
+                            avg = np.mean(values)
+                            std = np.std(values)
+                            min_val = np.min(values)
+                            max_val = np.max(values)
+                            f.write(f"{algo_name}, {metric}, {avg}, {std}, {min_val}, {max_val}\n")
+
+                # 添加运行时间信息
+                if "runtimes" in result:
+                    runtimes = result["runtimes"]
+                    avg_time = np.mean(runtimes)
+                    std_time = np.std(runtimes)
+                    min_time = np.min(runtimes)
+                    max_time = np.max(runtimes)
+                    f.write(f"{algo_name}, runtime, {avg_time}, {std_time}, {min_time}, {max_time}\n")
+
+                f.write("\n")
+
+
 # ====================== 可视化功能 ======================
 
 class Visualizer:
@@ -3829,13 +4228,11 @@ class Visualizer:
 class ExperimentFramework:
     """实验框架类，用于运行和比较不同算法"""
 
-    def __init__(self, save_dir="results"):
-        """
-        初始化实验框架
-
-        save_dir: 保存结果的目录
-        """
+    def __init__(self, save_dir="results", export_data=True):
+        """初始化实验框架"""
         self.save_dir = save_dir
+        self.export_data = export_data
+
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -3847,21 +4244,29 @@ class ExperimentFramework:
         )
         self.logger = logging.getLogger("ExperimentFramework")
 
-    def run_experiment(self, problems, algorithms, algorithm_params, n_runs=10, verbose=True):
+        # 初始化数据导出器
+        if export_data:
+            self.data_exporter = DataExporter(os.path.join(save_dir, "exported_data"))
+
+    # 修改ExperimentFramework类中的run_experiment方法
+    def run_experiment(self, problems, algorithms, algorithm_params, problem_specific_params=None, n_runs=10,
+                       verbose=True):
         """
-        运行实验，并生成全面的性能指标可视化
+        运行实验，并导出数据
 
-        参数:
-        problems: 测试问题列表
+        problems: 优化问题实例列表
         algorithms: 算法类列表
-        algorithm_params: 算法参数字典
-        n_runs: 每个算法和问题的运行次数
-        verbose: 是否输出进度信息
-
-        返回: 结果字典
+        algorithm_params: 通用算法参数字典 {算法名称: 参数字典}
+        problem_specific_params: 问题特定参数字典 {算法名称: {问题名称: 参数字典}}
+        n_runs: 每个问题和算法运行的次数
+        verbose: 是否显示详细输出
         """
         # 创建结果字典
         results = {algo.__name__: {} for algo in algorithms}
+
+        # 初始化问题特定参数字典（如果未提供）
+        if problem_specific_params is None:
+            problem_specific_params = {}
 
         for problem in problems:
             problem_name = problem.name
@@ -3871,6 +4276,11 @@ class ExperimentFramework:
 
             self.logger.info(f"Starting experiments on problem: {problem_name}")
 
+            # 当前问题的算法结果
+            problem_results = {}
+            algorithm_instances = {}  # 存储算法实例以供导出使用
+            all_tracking_data = {}  # 存储所有运行的跟踪数据
+
             for algorithm_class in algorithms:
                 algo_name = algorithm_class.__name__
 
@@ -3879,8 +4289,11 @@ class ExperimentFramework:
 
                 self.logger.info(f"Running {algo_name} on {problem_name}")
 
-                # 获取算法参数
-                params = algorithm_params.get(algo_name, {})
+                # 获取算法参数 - 优先使用问题特定参数
+                if algo_name in problem_specific_params and problem_name in problem_specific_params[algo_name]:
+                    params = problem_specific_params[algo_name][problem_name]
+                else:
+                    params = algorithm_params.get(algo_name, {})
 
                 # 初始化结果
                 results[algo_name][problem_name] = {
@@ -3893,7 +4306,8 @@ class ExperimentFramework:
                         "hv": [],
                         "sp": []
                     },
-                    "runtimes": []
+                    "runtimes": [],
+                    "all_tracking": []  # 存储所有运行的跟踪数据
                 }
 
                 # 运行多次实验
@@ -3904,12 +4318,16 @@ class ExperimentFramework:
                     # 创建算法实例
                     algorithm = algorithm_class(problem, **params)
 
+                    # 保存第一次运行的算法实例，用于导出完整迭代数据
+                    if run == 0:
+                        algorithm_instances[algo_name] = algorithm
+
                     # 运行算法
                     start_time = time.time()
                     pareto_front = algorithm.optimize(tracking=True, verbose=False)
                     end_time = time.time()
 
-                    # 收集Pareto解集（如果有）
+                    # 收集Pareto解集
                     if hasattr(algorithm, '_get_pareto_set'):
                         pareto_set = algorithm._get_pareto_set()
                     else:
@@ -3923,8 +4341,13 @@ class ExperimentFramework:
 
                     # 收集跟踪数据
                     if hasattr(algorithm, 'tracking'):
-                        if run == 0:  # 只保存第一次运行的跟踪数据
-                            results[algo_name][problem_name]["tracking"] = algorithm.tracking
+                        # 深拷贝以避免引用问题
+                        tracking_copy = copy.deepcopy(algorithm.tracking)
+                        results[algo_name][problem_name]["all_tracking"].append(tracking_copy)
+
+                        # 仍然保留第一次运行的跟踪数据用于兼容现有代码
+                        if run == 0:
+                            results[algo_name][problem_name]["tracking"] = tracking_copy
 
                     # 收集指标
                     if hasattr(algorithm, 'tracking') and "metrics" in algorithm.tracking:
@@ -3934,17 +4357,8 @@ class ExperimentFramework:
                                 final_value = values[-1]
                                 results[algo_name][problem_name]["metrics"][metric_name].append(final_value)
 
-                # 计算最佳Pareto前沿
-                best_idx = 0
-                # 优先使用IGDF指标来确定最佳解，如果没有则尝试其他指标
-                for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
-                    metric_values = results[algo_name][problem_name]["metrics"].get(metric_name, [])
-                    if metric_values:
-                        if metric_name in ["igdf", "igdx", "rpsp", "sp"]:  # 越小越好
-                            best_idx = np.argmin(metric_values)
-                        else:  # hv，越大越好
-                            best_idx = np.argmax(metric_values)
-                        break
+                # 确定最佳解
+                best_idx = self._determine_best_solution_index(results[algo_name][problem_name])
 
                 # 保存最佳解
                 if results[algo_name][problem_name]["pareto_fronts"]:
@@ -3956,102 +4370,127 @@ class ExperimentFramework:
                         best_idx]
 
                 # 计算平均指标
-                for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
-                    values = results[algo_name][problem_name]["metrics"][metric_name]
-                    if values:
-                        # 过滤NaN值
-                        valid_values = [v for v in values if not np.isnan(v)]
-                        if valid_values:
-                            results[algo_name][problem_name]["metrics"][f"avg_{metric_name}"] = np.mean(valid_values)
-                            results[algo_name][problem_name]["metrics"][f"std_{metric_name}"] = np.std(valid_values)
-                        else:
-                            results[algo_name][problem_name]["metrics"][f"avg_{metric_name}"] = float('nan')
-                            results[algo_name][problem_name]["metrics"][f"std_{metric_name}"] = float('nan')
-                    else:
-                        results[algo_name][problem_name]["metrics"][f"avg_{metric_name}"] = float('nan')
-                        results[algo_name][problem_name]["metrics"][f"std_{metric_name}"] = float('nan')
+                self._calculate_average_metrics(results[algo_name][problem_name])
 
                 # 输出结果汇总
-                self.logger.info(f"Completed {algo_name} on {problem_name}:")
-                for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
-                    avg_key = f"avg_{metric_name}"
-                    if avg_key in results[algo_name][problem_name]["metrics"]:
-                        value = results[algo_name][problem_name]["metrics"][avg_key]
-                        if not np.isnan(value):
-                            self.logger.info(f"  {avg_key}: {value:.6f}")
+                self._log_results_summary(algo_name, problem_name, results[algo_name][problem_name])
 
-                self.logger.info(
-                    f"  Average runtime: {np.mean(results[algo_name][problem_name]['runtimes']):.2f} seconds")
+                # 将当前算法结果添加到问题结果集
+                problem_results[algo_name] = results[algo_name][problem_name]
+
+            # 导出数据
+            if self.export_data:
+                self._export_problem_data(problem_name, problem, problem_results, algorithm_instances)
 
             # 保存问题的比较图
-            algorithms_results = {algo_name: results[algo_name][problem_name] for algo_name in results.keys()}
+            self._generate_visualizations(problem, problem_name, problem_results)
 
-            # 1. 绘制Pareto前沿比较图
-            Visualizer.plot_pareto_front_comparison(
-                problem,
-                algorithms_results,
-                save_path=os.path.join(self.save_dir, f"{problem_name}_pareto_front.png")
-            )
-
-            # 2. 绘制Pareto解集比较图（如果可用）
-            has_pareto_sets = any("pareto_set" in result for result in algorithms_results.values())
-            if has_pareto_sets:
-                Visualizer.plot_pareto_set_comparison(
-                    problem,
-                    algorithms_results,
-                    save_path=os.path.join(self.save_dir, f"{problem_name}_pareto_set.png")
-                )
-
-            # 3. 绘制各指标收敛曲线
-            metrics = ["igdf", "igdx", "rpsp", "hv", "sp"]
-            for metric_name in metrics:
-                Visualizer.plot_convergence(
-                    algorithms_results,
-                    metric_name=metric_name,
-                    problem_name=problem_name,
-                    save_path=os.path.join(self.save_dir, f"{problem_name}_{metric_name}_convergence.png")
-                )
-
-            # 4. 绘制性能指标小提琴图/箱线图
-            Visualizer.plot_algorithm_performance_boxplots(
-                algorithms_results,
-                problem_name,
-                metrics=metrics,
-                save_path=os.path.join(self.save_dir, f"{problem_name}_performance_boxplots.png")
-            )
-            '''
-            # 5. 绘制雷达图
-            Visualizer.plot_radar_chart(
-                algorithms_results,
-                problem_name=problem_name,
-                metrics=metrics,
-                save_path=os.path.join(self.save_dir, f"{problem_name}_radar_chart.png")
-            )
-            '''
-        # 6. 绘制总体性能热图
-        '''
-        Visualizer.plot_metrics_summary(
-            results,
-            problems,
-            metrics=metrics,
-            save_path=os.path.join(self.save_dir, "metrics_heatmap.png")
-        )
-        '''
-        # 7. 保存结果汇总
+        # 保存结果汇总
         self._save_summary(results, problems)
 
         if verbose:
             print(f"\n实验完成! 结果已保存到 {self.save_dir} 目录")
-            print(f"生成了以下图像类型:")
-            print(f"  - Pareto前沿比较图 (*_pareto_front.png)")
-            print(f"  - Pareto解集比较图 (*_pareto_set.png)")
-            print(f"  - 性能指标收敛曲线 (*_igdf/igdx/rpsp/hv/sp_convergence.png)")
-            print(f"  - 性能指标小提琴图 (*_performance_boxplots.png)")
-            # print(f"  - 多指标雷达图 (*_radar_chart.png)")
-            # print(f"  - 性能指标热图 (metrics_heatmap_*.png)")
-            print(f"  - 详细指标汇总表 (summary_*.txt)")
+            if self.export_data:
+                print(f"详细数据已导出到 {os.path.join(self.save_dir, 'exported_data')} 目录")
 
         return results
+
+    def _determine_best_solution_index(self, algorithm_result):
+        """确定最佳解的索引"""
+        best_idx = 0
+        # 优先使用IGDF指标来确定最佳解，如果没有则尝试其他指标
+        for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
+            metric_values = algorithm_result["metrics"].get(metric_name, [])
+            if metric_values:
+                if metric_name in ["igdf", "igdx", "rpsp", "sp"]:  # 越小越好
+                    best_idx = np.argmin(metric_values)
+                else:  # hv，越大越好
+                    best_idx = np.argmax(metric_values)
+                break
+        return best_idx
+
+    def _calculate_average_metrics(self, algorithm_result):
+        """计算平均指标"""
+        for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
+            values = algorithm_result["metrics"][metric_name]
+            if values:
+                # 过滤NaN值
+                valid_values = [v for v in values if not np.isnan(v)]
+                if valid_values:
+                    algorithm_result["metrics"][f"avg_{metric_name}"] = np.mean(valid_values)
+                    algorithm_result["metrics"][f"std_{metric_name}"] = np.std(valid_values)
+                else:
+                    algorithm_result["metrics"][f"avg_{metric_name}"] = float('nan')
+                    algorithm_result["metrics"][f"std_{metric_name}"] = float('nan')
+            else:
+                algorithm_result["metrics"][f"avg_{metric_name}"] = float('nan')
+                algorithm_result["metrics"][f"std_{metric_name}"] = float('nan')
+
+    def _log_results_summary(self, algo_name, problem_name, algorithm_result):
+        """记录结果汇总到日志"""
+        self.logger.info(f"Completed {algo_name} on {problem_name}:")
+        for metric_name in ["igdf", "igdx", "rpsp", "hv", "sp"]:
+            avg_key = f"avg_{metric_name}"
+            if avg_key in algorithm_result["metrics"]:
+                value = algorithm_result["metrics"][avg_key]
+                if not np.isnan(value):
+                    self.logger.info(f"  {avg_key}: {value:.6f}")
+        self.logger.info(f"  Average runtime: {np.mean(algorithm_result['runtimes']):.2f} seconds")
+
+    def _export_problem_data(self, problem_name, problem, problem_results, algorithm_instances):
+        """导出问题数据 - 修改为导出所有运行的跟踪数据"""
+        for algo_name, result in problem_results.items():
+            # 导出所有运行的代际性能数据
+            if "all_tracking" in result and result["all_tracking"]:
+                self.data_exporter.export_generational_performance_all_runs(
+                    problem_name,
+                    algo_name,
+                    result["all_tracking"],
+                    algorithm_instances.get(algo_name)  # 传递算法实例以获取运算次数信息
+                )
+
+        # 导出帕累托前沿和解集
+        self.data_exporter.export_pareto_front(problem_name, problem, problem_results)
+        self.data_exporter.export_pareto_set(problem_name, problem, problem_results)
+
+        # 导出汇总性能指标
+        self.data_exporter.export_summary_metrics(problem_name, problem_results)
+
+    def _generate_visualizations(self, problem, problem_name, problem_results):
+        """生成问题的可视化图表"""
+        # 绘制Pareto前沿比较图
+        Visualizer.plot_pareto_front_comparison(
+            problem,
+            problem_results,
+            save_path=os.path.join(self.save_dir, f"{problem_name}_pareto_front.png")
+        )
+
+        # 绘制Pareto解集比较图（如果可用）
+        has_pareto_sets = any("pareto_set" in result for result in problem_results.values())
+        if has_pareto_sets:
+            Visualizer.plot_pareto_set_comparison(
+                problem,
+                problem_results,
+                save_path=os.path.join(self.save_dir, f"{problem_name}_pareto_set.png")
+            )
+
+        # 绘制各指标收敛曲线
+        metrics = ["igdf", "igdx", "rpsp", "hv", "sp"]
+        for metric_name in metrics:
+            Visualizer.plot_convergence(
+                problem_results,
+                metric_name=metric_name,
+                problem_name=problem_name,
+                save_path=os.path.join(self.save_dir, f"{problem_name}_{metric_name}_convergence.png")
+            )
+
+        # 绘制性能指标小提琴图/箱线图
+        Visualizer.plot_algorithm_performance_boxplots(
+            problem_results,
+            problem_name,
+            metrics=metrics,
+            save_path=os.path.join(self.save_dir, f"{problem_name}_performance_boxplots.png")
+        )
 
     def _save_summary(self, results, problems):
         """保存结果汇总 - 增强版支持IGDF、IGDX、RPSP、HV、SP指标"""
@@ -4463,7 +4902,7 @@ def main():
     random.seed(42)
 
     # 创建结果目录
-    results_dir = "cec2020_results"
+    results_dir = "cec2020_results22"
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
@@ -4482,48 +4921,33 @@ def main():
         TP11(n_var=30)
     ]
 
-    # 设置算法 - 使用所有五种算法
+    # 设置算法
     algorithms = [
-        #CASMOPSO,
-        #MOPSO,
+        CASMOPSO,
+        MOPSO,
         NSGAII,
-        #MOEAD,
-        #SPEA2
+        MOEAD,
+        SPEA2
     ]
 
-    # 算法参数
+    # 通用算法参数
     algorithm_params = {
-        "CASMOPSO": {
-            "pop_size": 200,  # 种群大小
-            "max_iterations": 200,  # 迭代次数
-            "w_init": 0.9,  # 惯性权重初始值
-            "w_end": 0.4,  # 惯性权重终值
-            "c1_init": 2.5,  # 个体认知
-            "c1_end": 0.5,  # 个体认知终值
-            "c2_init": 0.5,  # 社会认知初值
-            "c2_end": 2.5,  # 社会认知终值
-            "use_archive": True,  # 存档大小
-            "archive_size": 300,
-            "mutation_rate": 0.1,  # 变异率
-            "adaptive_grid_size": 15,  # 网格大小
-            "k_vmax": 0.5 #速度限制因子
-        },
         "MOPSO": {  # 使用新的动态参数接口
             "pop_size": 150,
-            "max_iterations": 200,
-            "w_init": 0.9, "w_end": 0.4,  # 动态惯性权重
+            "max_iterations": 400,
+            "w_init": 0.9, "w_end": 0.5,  # 动态惯性权重
             "c1_init": 1.5, "c1_end": 1.5,  # (等效于 c1=1.5)
             "c2_init": 1.5, "c2_end": 1.5,  # (等效于 c2=1.5)
             "use_archive": True,
             "archive_size": 150  # 标准存档大小
         },
         "NSGAII": {
-            "pop_size": 50,
-            "max_generations": 200
+            "pop_size": 100,
+            "max_generations": 400
         },
         "MOEAD": {
             "pop_size": 150,
-            "max_generations": 200,
+            "max_generations": 400,
             "T": 20,
             "delta": 0.9,
             "nr": 2
@@ -4531,23 +4955,36 @@ def main():
         "SPEA2": {
             "pop_size": 100,
             "archive_size": 100,
-            "max_generations": 200
+            "max_generations": 400
         }
     }
 
-    # 创建实验框架
-    experiment = ExperimentFramework(save_dir=results_dir)
+    # 创建问题特定的CASMOPSO参数字典
+    problem_specific_params = {"CASMOPSO": {}}
+    for problem in problems:
+        problem_specific_params["CASMOPSO"][problem.name] = get_optimal_casmopso_params(problem.name)
 
-    # 运行实验
+    # 创建实验框架
+    experiment = ExperimentFramework(save_dir=results_dir, export_data=True)
+
+    # 运行实验，传入问题特定参数
     results = experiment.run_experiment(
         problems=problems,
         algorithms=algorithms,
         algorithm_params=algorithm_params,
-        n_runs=10,  # 减少运行次数以节省时间
+        problem_specific_params=problem_specific_params,  # 新增：传入问题特定参数
+        n_runs=1,  # 减少运行次数以节省时间
         verbose=True
     )
 
-    print(f"\n实验完成! 结果已保存到 {results_dir} 目录")
+    print(f"实验完成! 结果已保存到 {results_dir} 目录")
+    print(f"详细数据已导出到 {os.path.join(results_dir, 'exported_data')} 目录，格式如下:")
+    print("1. 性能数据: exported_data/performance/<问题名称>/")
+    print("   - <算法名称>_run_<运行ID>_generational.txt: 每次运行的完整代际性能数据，包含运算次数")
+    print("   - <算法名称>_all_runs_summary.txt: 所有运行的汇总信息")
+    print("   - summary_metrics.txt: 问题的所有算法汇总性能指标")
+    print("2. 帕累托前沿数据: exported_data/pareto_fronts/<问题名称>_pareto_fronts.txt (包含所有运行的前沿)")
+    print("3. 帕累托解集数据: exported_data/pareto_sets/<问题名称>_pareto_sets.txt (包含所有运行的解集)")
 
 
 if __name__ == "__main__":
