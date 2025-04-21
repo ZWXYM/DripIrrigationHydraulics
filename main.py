@@ -20,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("optimization_manager.log"),
+        logging.FileHandler("临时/optimization_manager.log"),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -259,6 +259,8 @@ def run_optimization(algorithm_file, node_count, lgz1, lgz2, frist_pressure, fri
 import os
 import sys
 import matplotlib
+import json
+import pandas as pd
 matplotlib.use('Agg')  # 使用非交互式后端
 
 # 执行原始脚本
@@ -791,15 +793,15 @@ def get_interactive_params():
 
     # 询问支管编号
     try:
-        zhiguan_input = input("\n支管编号 (输入0保存到临时文件夹) [默认:1]: ").strip()
-        params['zhiguan'] = int(zhiguan_input) if zhiguan_input else 1
+        zhiguan_input = input("\n支管编号 (输入0保存到临时文件夹) [默认:0]: ").strip()
+        params['zhiguan'] = int(zhiguan_input) if zhiguan_input else 0
     except ValueError:
         print("  输入无效，将使用默认值")
-        params['zhiguan'] = 1
+        params['zhiguan'] = 0
 
     # 统一参数
     try:
-        frist_pressure_input = input("\n入口水头压力(米) [默认:50]: ").strip()
+        frist_pressure_input = input("\n入口水头压力(m) [默认:50]: ").strip()
         params['frist_pressure'] = float(frist_pressure_input) if frist_pressure_input else 50
     except ValueError:
         print("  输入无效，将使用默认值")
@@ -807,7 +809,7 @@ def get_interactive_params():
 
     # 管径直径参数
     try:
-        frist_diameter_input = input("\n管径直径(毫米) [默认:500]: ").strip()
+        frist_diameter_input = input("\n入口管径直径(mm) [默认:500]: ").strip()
         params['frist_diameter'] = int(frist_diameter_input) if frist_diameter_input else 500
     except ValueError:
         print("  输入无效，将使用默认值")
@@ -819,15 +821,15 @@ def get_interactive_params():
         nodes_input = input("  节点数量 [默认:23]: ").strip()
         params['nodes_shuzi'] = int(nodes_input) if nodes_input else 23
 
-        lgz1_input = input("  轮灌组参数lgz1 [默认:6]: ").strip()
-        params['lgz1_shuzi'] = int(lgz1_input) if lgz1_input else 6
+        lgz1_input = input("  轮灌组参数lgz1 [默认:8]: ").strip()
+        params['lgz1_shuzi'] = int(lgz1_input) if lgz1_input else 8
 
         lgz2_input = input("  轮灌组参数lgz2 [默认:4]: ").strip()
         params['lgz2_shuzi'] = int(lgz2_input) if lgz2_input else 4
     except ValueError:
         print("  输入无效，将使用默认值")
         params['nodes_shuzi'] = params.get('nodes_shuzi', 23)
-        params['lgz1_shuzi'] = params.get('lgz1_shuzi', 6)
+        params['lgz1_shuzi'] = params.get('lgz1_shuzi', 8)
         params['lgz2_shuzi'] = params.get('lgz2_shuzi', 4)
 
     # 丰字布局参数
@@ -836,15 +838,15 @@ def get_interactive_params():
         nodes_input = input("  节点数量 [默认:32]: ").strip()
         params['nodes_fengzi'] = int(nodes_input) if nodes_input else 32
 
-        lgz1_input = input("  轮灌组参数lgz1 [默认:8]: ").strip()
-        params['lgz1_fengzi'] = int(lgz1_input) if lgz1_input else 8
+        lgz1_input = input("  轮灌组参数lgz1 [默认:11]: ").strip()
+        params['lgz1_fengzi'] = int(lgz1_input) if lgz1_input else 11
 
         lgz2_input = input("  轮灌组参数lgz2 [默认:2]: ").strip()
         params['lgz2_fengzi'] = int(lgz2_input) if lgz2_input else 2
     except ValueError:
         print("  输入无效，将使用默认值")
         params['nodes_fengzi'] = params.get('nodes_fengzi', 32)
-        params['lgz1_fengzi'] = params.get('lgz1_fengzi', 8)
+        params['lgz1_fengzi'] = params.get('lgz1_fengzi', 11)
         params['lgz2_fengzi'] = params.get('lgz2_fengzi', 2)
 
     # 执行选项
@@ -1810,8 +1812,8 @@ def execute_optimization_task(task, system_constants, auto_mode=False):
     result_files = []
 
     # 检查PSO结果文件
-    pso_result_file = "optimization_results_PSO_DAN.txt"
-    pso_shuang_result_file = "optimization_results_PSO_SHUANG.txt"
+    pso_result_file = "临时/optimization_results_PSO_DAN.txt"
+    pso_shuang_result_file = "临时/optimization_results_PSO_SHUANG.txt"
 
     if os.path.exists(pso_result_file):
         result_files.append((pso_result_file, "PSO梳齿布局"))
@@ -1820,8 +1822,8 @@ def execute_optimization_task(task, system_constants, auto_mode=False):
         result_files.append((pso_shuang_result_file, "PSO丰字布局"))
 
     # 检查NSGA-II结果文件
-    nsga_result_file = "optimization_results_NSGAⅡ_DAN.txt"
-    nsga_shuang_result_file = "optimization_results_NSGAⅡ_SHUANG.txt"
+    nsga_result_file = "临时/optimization_results_NSGAⅡ_DAN.txt"
+    nsga_shuang_result_file = "临时/optimization_results_NSGAⅡ_SHUANG.txt"
 
     if os.path.exists(nsga_result_file):
         result_files.append((nsga_result_file, "NSGA-II梳齿布局"))

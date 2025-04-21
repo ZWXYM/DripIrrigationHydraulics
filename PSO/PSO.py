@@ -1,11 +1,14 @@
 # CAS_MOPSO
 # 拥挤度自适应平滑多目标粒子群优化算法 (Crowding-based Adaptive Smoothing Multi-objective Particle Swarm Optimization)
+import json
 import math
+import os
 import random
 import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from deap import tools
 from matplotlib import rcParams
 import platform
@@ -1525,15 +1528,78 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
     # 添加在返回前，visualize_pareto_front(pareto_front)之后
     # 保存帕累托前沿到文件
     try:
-        from pareto_show import save_pareto_front, save_pareto_solutions
         pareto_front_values = np.array([p.best_fitness for p in non_dominated_front])
-        save_pareto_front(pareto_front_values, "CASMOPSO")
-        save_pareto_solutions(non_dominated_front, "CASMOPSO")
+        save_pareto_front(pareto_front_values, "CASMOPSO_DAN")
+        save_pareto_solutions(non_dominated_front, "CASMOPSO_DAN")
         print("帕累托解集已成功保存")
     except Exception as e:
         print(f"保存帕累托解集时出错: {str(e)}")
     # 返回最终优化过的帕累托前沿
     return non_dominated_front, logbook
+
+
+def save_pareto_front(pareto_front, algorithm_name, save_dir='PSO_DAN_result'):
+    """
+    保存帕累托前沿到CSV文件
+    参数:
+    pareto_front: 帕累托前沿解集，形式为[[cost1, variance1], [cost2, variance2], ...]
+    algorithm_name: 算法名称
+    save_dir: 保存目录
+    """
+    # 确保保存目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    # 将解集转换为DataFrame
+    df = pd.DataFrame(pareto_front, columns=['system_cost', 'pressure_variance'])
+    # 保存为CSV文件
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{algorithm_name}_pareto_front_{timestamp}.csv"
+    filepath = os.path.join(save_dir, filename)
+    df.to_csv(filepath, index=False)
+    print(f"帕累托前沿已保存到：{filepath}")
+    return filepath
+
+
+def save_pareto_solutions(solutions, algorithm_name, save_dir='PSO_DAN_result'):
+    """
+    保存帕累托解集（包括决策变量和目标值）到JSON文件
+    参数:
+    solutions: 帕累托解集，每个解包含决策变量和目标值
+    algorithm_name: 算法名称
+    save_dir: 保存目录
+    """
+    # 确保保存目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # 将解集转换为列表字典
+    solution_list = []
+    for solution in solutions:
+        # 确保所有NumPy数组都被转换为Python列表
+        if hasattr(solution, 'best_position'):
+            position = solution.best_position.tolist() if hasattr(solution.best_position,
+                                                                  'tolist') else solution.best_position
+        else:
+            position = solution.position.tolist() if hasattr(solution.position, 'tolist') else solution.position
+
+        if hasattr(solution, 'best_fitness'):
+            fitness = solution.best_fitness.tolist() if hasattr(solution.best_fitness,
+                                                                'tolist') else solution.best_fitness
+        else:
+            fitness = solution.fitness.tolist() if hasattr(solution.fitness, 'tolist') else solution.fitness
+
+        sol_dict = {
+            'position': position,
+            'objectives': fitness
+        }
+        solution_list.append(sol_dict)
+
+    # 保存为JSON文件
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{algorithm_name}_solutions_{timestamp}.json"
+    filepath = os.path.join(save_dir, filename)
+    with open(filepath, 'w') as f:
+        json.dump(solution_list, f, indent=2)
 
 
 # 将_update_pipe_diameters从局部函数提升为全局函数
@@ -1984,5 +2050,5 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
-    main(23, 49.62, 500, 8, 4, 200, 200, True, True)
+    main(23, 49.62, 500, 8, 4, 50, 50, True, True)
     # main_batch(23, 49.62, 500, 8, 4, 100, 50, False, True)

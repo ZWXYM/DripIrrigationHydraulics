@@ -1,9 +1,12 @@
+import json
 import math
+import os
 import random
 import logging
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from deap import base, creator, tools, algorithms
 from matplotlib import rcParams
 import platform
@@ -1295,9 +1298,75 @@ def multi_objective_optimization(irrigation_system, lgz1, lgz2, swarm_size, max_
 
     # 绘制图表
     tracker.finalize_plots()
+    # 在返回前计算并保存帕累托前沿
+    try:
+        # 首先获取最终的帕累托前沿
+        final_pareto_front = tools.sortNondominated(population, len(population), first_front_only=True)[0]
 
+        # 提取帕累托前沿的适应度值
+        pareto_front_values = np.array([ind.fitness.values for ind in final_pareto_front])
+
+        # 保存到CSV和JSON
+        save_pareto_front(pareto_front_values, "NSGA_SHUANG")
+        save_pareto_solutions(final_pareto_front, "NSGA_SHUANG")
+        print("帕累托解集已成功保存")
+    except Exception as e:
+        print(f"保存帕累托解集时出错: {str(e)}")
     # 确保优化结果返回，不阻塞在图表上
     return tools.sortNondominated(population, len(population), first_front_only=True)[0], logbook
+
+
+def save_pareto_front(pareto_front, algorithm_name, save_dir='NSGA_SHUANG_result'):
+    """
+    保存帕累托前沿到CSV文件
+    参数:
+    pareto_front: 帕累托前沿解集，形式为[[cost1, variance1], [cost2, variance2], ...]
+    algorithm_name: 算法名称
+    save_dir: 保存目录
+    """
+    # 确保保存目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    # 将解集转换为DataFrame
+    df = pd.DataFrame(pareto_front, columns=['system_cost', 'pressure_variance'])
+    # 保存为CSV文件
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{algorithm_name}_pareto_front_{timestamp}.csv"
+    filepath = os.path.join(save_dir, filename)
+    df.to_csv(filepath, index=False)
+    print(f"帕累托前沿已保存到：{filepath}")
+    return filepath
+
+
+def save_pareto_solutions(solutions, algorithm_name, save_dir='NSGA_SHUANG_result'):
+    """
+    保存帕累托解集（包括决策变量和目标值）到JSON文件
+    参数:
+    solutions: 帕累托解集，每个解包含决策变量和目标值
+    algorithm_name: 算法名称
+    save_dir: 保存目录
+    """
+    # 确保保存目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # 将解集转换为列表字典
+    solution_list = []
+    for ind in solutions:
+        sol_dict = {
+            'position': list(ind),  # Individual对象本身就是决策变量的列表
+            'objectives': list(ind.fitness.values)  # 从fitness属性获取适应度值
+        }
+        solution_list.append(sol_dict)
+
+    # 保存为JSON文件
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{algorithm_name}_solutions_{timestamp}.json"
+    filepath = os.path.join(save_dir, filename)
+    with open(filepath, 'w') as f:
+        json.dump(solution_list, f, indent=2)
+    print(f"帕累托解集已保存到：{filepath}")
+    return filepath
 
 
 # 将_update_pipe_diameters从局部函数提升为全局函数
