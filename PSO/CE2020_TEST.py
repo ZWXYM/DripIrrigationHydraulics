@@ -10,8 +10,7 @@ import time
 import logging
 from tqdm import tqdm
 import os
-
-from scipy.spatial.distance import cdist, pdist
+from scipy.spatial.distance import cdist
 
 
 # ====================== CEC2020 测试函数实现 ======================
@@ -40,7 +39,7 @@ class Problem:
         return self.pareto_set
 
 
-# --- TP1 (保持不变) ---
+
 class TP1(Problem):
     """
     CEC2020 TP1 测试函数
@@ -81,7 +80,7 @@ class TP1(Problem):
         self.pareto_set[:, 0] = f1  # x[0]等于f1
 
 
-# --- TP2 (保持不变) ---
+
 class TP2(Problem):
     """
     CEC2020 TP2 测试函数
@@ -126,7 +125,7 @@ class TP2(Problem):
         self.pareto_set[:, 0] = f1  # x[0]等于f1
 
 
-# --- TP3 (修改 _generate_pf) ---
+
 class TP3(Problem):
     """
     CEC2020 TP3 测试函数（基于CEC2009 UF8）
@@ -206,7 +205,7 @@ class TP3(Problem):
         # 注意：生成的解可能超出 [-1, 1] 的界限，但这是基于最优条件的理论解集
 
 
-# --- TP4 (修改 _generate_pf) ---
+
 class TP4(Problem):
     """
     CEC2020 TP4 测试函数（基于CEC2009 UF9）
@@ -283,7 +282,7 @@ class TP4(Problem):
                 self.pareto_set[i, j] = 2 * x1 * np.sin(2 * np.pi * x0 + (j + 1) * np.pi / n)
 
 
-# --- TP5 (修改 _generate_pf) ---
+
 class TP5(Problem):
     """
     CEC2020 TP5 测试函数（基于CEC2009 UF10）
@@ -368,7 +367,7 @@ class TP5(Problem):
                 self.pareto_set[i, j] = np.sin(6 * np.pi * x0 + (j + 1) * np.pi / n)
 
 
-# --- TP6 (修改 _generate_pf) ---
+
 class TP6(Problem):
     """
     CEC2020 TP6 测试函数
@@ -442,7 +441,7 @@ class TP6(Problem):
             self.pareto_set[:, M - 1:] = 0.5
 
 
-# --- TP7 (修改 _generate_pf) ---
+
 class TP7(Problem):
     """
     CEC2020 TP7 测试函数
@@ -511,7 +510,7 @@ class TP7(Problem):
             self.pareto_set[:, M - 1:] = 0.5
 
 
-# --- TP8 (修改 _generate_pf) ---
+
 class TP8(Problem):
     """
     CEC2020 TP8 测试函数
@@ -588,7 +587,7 @@ class TP8(Problem):
             self.pareto_set[:, M - 1:] = 0.0
 
 
-# --- TP9 (修改 _generate_pf) ---
+
 class TP9(Problem):
     """
     CEC2020 TP9 测试函数
@@ -678,7 +677,7 @@ class TP9(Problem):
         self.pareto_set[:, 2:] = 0.0
 
 
-# --- TP10 (修改 _generate_pf) ---
+
 class TP10(Problem):
     """
     CEC2020 TP10 测试函数
@@ -763,7 +762,7 @@ class TP10(Problem):
         if self.n_var >= 6: self.pareto_set[:, 5] = 0.0
 
 
-# --- TP11 (修改 _generate_pf) ---
+
 class TP11(Problem):
     """
     CEC2020 TP11 测试函数
@@ -4485,11 +4484,11 @@ def main():
 
     # 设置算法 - 使用所有五种算法
     algorithms = [
-        CASMOPSO,
-        MOPSO,
+        #CASMOPSO,
+        #MOPSO,
         NSGAII,
-        MOEAD,
-        SPEA2
+        #MOEAD,
+        #SPEA2
     ]
 
     # 算法参数
@@ -4519,7 +4518,7 @@ def main():
             "archive_size": 150  # 标准存档大小
         },
         "NSGAII": {
-            "pop_size": 150,
+            "pop_size": 50,
             "max_generations": 200
         },
         "MOEAD": {
