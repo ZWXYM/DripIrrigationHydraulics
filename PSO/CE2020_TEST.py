@@ -13,6 +13,8 @@ import os
 from scipy.spatial.distance import cdist
 import copy  # 新增: 用于深拷贝跟踪数据
 import scipy.interpolate
+
+
 # ====================== CEC2020 测试函数实现 ======================
 class Problem:
     """多目标优化问题基类"""
@@ -920,7 +922,7 @@ class CASMOPSO:
                  w_init, w_end, c1_init, c1_end,
                  c2_init, c2_end,
                  archive_size, mutation_rate, adaptive_grid_size,
-                 k_vmax,use_archive=True):  # 新增: 速度限制因子
+                 k_vmax, use_archive=True):  # 新增: 速度限制因子
         """
         初始化 CASMOPSO 算法 (包含建议的修改)
         ... (其他参数文档保持不变) ...
