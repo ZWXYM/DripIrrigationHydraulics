@@ -22,8 +22,8 @@ DEFAULT_DRIP_LINE_LENGTH = 50  # 默认滴灌带长度（米）
 DEFAULT_DRIP_LINE_SPACING = 1  # 默认滴灌带间隔（米）
 DEFAULT_DRIPPER_FLOW_RATE = 2.1  # 默认滴灌孔流量（L/h）
 DEFAULT_DRIP_LINE_INLET_PRESSURE = 10  # 默认滴灌带入口水头压力（米）
-PRESSURE_BASELINE = 23.8  # 基准压力值
-MAX_VARIANCE = 5.0  # 水头均方差上限
+PRESSURE_BASELINE = 27.51  # 基准压力值
+MAX_VARIANCE = 6.0  # 水头均方差上限
 
 # 日志和图表配置
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -375,10 +375,22 @@ class IrrigationSystem:
         return self.calculate_pressure_variance(active_nodes)
 
     def _check_pressure_requirements(self):
-        """检查压力要求满足情况"""
-        pressures = [submain["outlet_pressure"] for submain in self.submains
-                     if submain["flow_rate"] > 0]
-        return all(p >= DEFAULT_DRIP_LINE_INLET_PRESSURE for p in pressures)
+        """检查压力要求满足情况（使用节点基准水头）"""
+        # 获取各节点的基准水头
+        baseline_heads_data = self.calculate_node_baseline_heads()
+        baseline_heads = {data['node']: data['baseline_head'] for data in baseline_heads_data}
+
+        # 检查每个活跃节点的压力是否满足其基准水头需求
+        for i, submain in enumerate(self.submains):
+            if submain["flow_rate"] > 0:  # 只检查活跃的斗管
+                node_number = i + 1
+                required_pressure = baseline_heads.get(node_number, DEFAULT_DRIP_LINE_INLET_PRESSURE)
+                actual_pressure = submain["inlet_pressure"]
+
+                if actual_pressure < required_pressure:
+                    return False
+
+        return True
 
     def _create_main_pipe(self):
         """创建干管"""
@@ -445,21 +457,112 @@ class IrrigationSystem:
         return drip_lines
 
     def calculate_pressure_variance(self, active_nodes):
-        """统一计算水头均方差的标准方法"""
-        pressure_margins = [self.submains[node - 1]["inlet_pressure"] - PRESSURE_BASELINE
-                            for node in active_nodes
-                            if node <= len(self.submains) and self.submains[node - 1]["flow_rate"] > 0]
+        """统一计算水头均方差的标准方法（使用节点基准水头）"""
+        # 获取各节点的基准水头
+        baseline_heads_data = self.calculate_node_baseline_heads()
+        baseline_heads = {data['node']: data['baseline_head'] for data in baseline_heads_data}
+
+        # 计算各活跃节点的压力富裕度
+        pressure_margins = []
+        for node in active_nodes:
+            if node <= len(self.submains) and self.submains[node - 1]["flow_rate"] > 0:
+                actual_pressure = self.submains[node - 1]["inlet_pressure"]
+                required_pressure = baseline_heads.get(node, DEFAULT_DRIP_LINE_INLET_PRESSURE)
+                pressure_margin = actual_pressure - required_pressure
+                pressure_margins.append(pressure_margin)
 
         if not pressure_margins:
             return 0
 
+        # 计算均方差
         avg_margin = sum(pressure_margins) / len(pressure_margins)
         variance = sum((p - avg_margin) ** 2 for p in pressure_margins) / len(pressure_margins)
         return variance ** 0.5
 
+    def calculate_node_baseline_heads(self):
+        """计算每个节点真正需要的基准水头（从滴灌带入口倒推）"""
+        # 计算基础流量
+        drippers_per_line = math.ceil(DEFAULT_DRIP_LINE_LENGTH / DRIPPER_SPACING)
+        single_dripper_flow = DEFAULT_DRIPPER_FLOW_RATE / 3600000  # 转换为m³/s
+        lateral_flow = drippers_per_line * single_dripper_flow * 100  # 一条农管的流量
+
+        # 如果lgz2没有设置，使用默认值4
+        lgz2 = self.lgz2 if self.lgz2 is not None else 4
+        submain_flow = lateral_flow * lgz2  # 一条斗管的流量
+
+        node_baseline_heads = []
+
+        for i in range(self.node_count):
+            # 滴灌带入口水头
+            drip_inlet_head = DEFAULT_DRIP_LINE_INLET_PRESSURE  # 10米
+
+            # 计算农管水头损失
+            # 从laterals中获取农管直径，如果没有则使用默认值90mm
+            if i < len(self.laterals) and len(self.laterals) > 0:
+                lateral_diameter = self.laterals[i * self.lgz2]["diameter"]  # 取该斗管对应的第一条农管直径
+            else:
+                lateral_diameter = 90  # 默认直径
+
+            lateral_length = DEFAULT_LATERAL_LENGTH
+            lateral_head_loss = pressure_loss(lateral_diameter, lateral_length, lateral_flow)
+
+            # 计算斗管水头损失（分两段计算）
+            # 第一段：使用160mm直径
+            submain_first_diameter = 160
+            submain_first_length = self.submain_length / 2
+            submain_first_head_loss = pressure_loss(submain_first_diameter, submain_first_length, submain_flow)
+
+            # 第二段：使用160mm直径（根据代码中的默认配置）
+            submain_second_diameter = 160
+            submain_second_length = self.submain_length / 2
+            submain_second_head_loss = pressure_loss(submain_second_diameter, submain_second_length, submain_flow)
+
+            # 斗管总水头损失
+            submain_total_head_loss = submain_first_head_loss + submain_second_head_loss
+
+            # 计算该节点需要的基准水头
+            baseline_head = drip_inlet_head + lateral_head_loss + submain_total_head_loss
+            node_baseline_heads.append({
+                'node': i + 1,
+                'drip_inlet_head': drip_inlet_head,
+                'lateral_head_loss': lateral_head_loss,
+                'submain_head_loss': submain_total_head_loss,
+                'baseline_head': baseline_head,
+                'lateral_flow': lateral_flow,
+                'submain_flow': submain_flow
+            })
+
+        return node_baseline_heads
+
+    def print_node_baseline_heads(self):
+        """输出每个节点的基准水头计算结果"""
+        baseline_heads = self.calculate_node_baseline_heads()
+
+        print("\n" + "=" * 80)
+        print("各节点基准水头计算结果（从滴灌带入口倒推）")
+        print("=" * 80)
+        print(
+            f"{'节点':<4} {'滴灌带入口':<8} {'农管水损':<8} {'斗管水损':<8} {'基准水头':<8} {'农管流量':<10} {'斗管流量':<10}")
+        print(f"{'编号':<4} {'水头(m)':<8} {'(m)':<8} {'(m)':<8} {'需求(m)':<8} {'(m³/s)':<10} {'(m³/s)':<10}")
+        print("-" * 80)
+
+        for data in baseline_heads:
+            print(f"{data['node']:<4} {data['drip_inlet_head']:<8.2f} {data['lateral_head_loss']:<8.3f} "
+                  f"{data['submain_head_loss']:<8.3f} {data['baseline_head']:<8.2f} "
+                  f"{data['lateral_flow']:<10.6f} {data['submain_flow']:<10.6f}")
+
+        print("-" * 80)
+        print(f"说明：")
+        print(f"- 滴灌带入口水头：{DEFAULT_DRIP_LINE_INLET_PRESSURE}m（固定值）")
+        print(f"- 农管长度：{DEFAULT_LATERAL_LENGTH}m")
+        print(f"- 斗管长度：{DEFAULT_SUBMAIN_LENGTH}m（分两段，每段{DEFAULT_SUBMAIN_LENGTH / 2}m）")
+        print(f"- 斗管管径：160mm/160mm（两段均为160mm）")
+        print(f"- 基准水头 = 滴灌带入口水头 + 农管水头损失 + 斗管水头损失")
+        print("=" * 80)
+
 
 class PSOOptimizationTracker:
-    def __init__(self, show_dynamic_plots=False, auto_save=True, enable_smoothing=True):
+    def __init__(self, show_dynamic_plots=False, auto_save=True, enable_smoothing=False):
         self.iterations = []
         self.best_costs = []
         self.best_variances = []
@@ -1240,6 +1343,10 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
         max_attempts = 10
         attempt = 0
 
+        # 获取各节点的基准水头
+        baseline_heads_data = irrigation_system.calculate_node_baseline_heads()
+        baseline_heads = {data['node']: data['baseline_head'] for data in baseline_heads_data}
+
         while attempt < max_attempts:
             # 更新管网配置
             _update_pipe_diameters(irrigation_system, individual)
@@ -1256,7 +1363,10 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
             for node in active_nodes:
                 if node <= len(irrigation_system.submains):
                     submain = irrigation_system.submains[node - 1]
-                    if submain["inlet_pressure"] < PRESSURE_BASELINE:
+                    required_pressure = baseline_heads.get(node, DEFAULT_DRIP_LINE_INLET_PRESSURE)
+
+                    # 修改这里：使用节点基准水头而不是PRESSURE_BASELINE
+                    if submain["inlet_pressure"] < required_pressure:
                         pressure_satisfied = False
 
                         # 找到从起点到该节点的路径上最小管径的管段
@@ -1279,7 +1389,9 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
                             diameter_increased = True
 
             if pressure_satisfied:
-                return True, np.array(individual)
+                # 关键修复：从当前irrigation_system状态重新编码position，确保完全一致
+                corrected_position = encode_pipe_diameters_from_system_pso(irrigation_system)
+                return True, corrected_position
 
             if not diameter_increased:
                 return False, np.array(individual)
@@ -1295,20 +1407,34 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
             total_cost = 0
             pressure_variances = []
 
+            # 标记是否所有轮灌组都成功
+            all_groups_success = True
+            final_corrected_position = None
+
             for group_idx in range(group_count):
                 active_nodes = irrigation_system.irrigation_groups[group_idx]
 
                 # 调整管径直到满足要求或无法继续调整
                 success, adjusted_position = adjust_pipe_diameters(position_copy, active_nodes)
-                if success:
-                    position_copy = adjusted_position
-                else:
-                    return float('inf'), float('inf')
+                if not success:
+                    all_groups_success = False
+                    break
+
+                # 更新position_copy为调整后的版本
+                position_copy = adjusted_position
+                final_corrected_position = adjusted_position
 
                 # 计算该组的评估指标
                 metrics = irrigation_system.evaluate_group(group_idx)
                 total_cost += metrics['cost']
                 pressure_variances.append(metrics['pressure_variance'])
+
+            if not all_groups_success:
+                return float('inf'), float('inf')
+
+            # 关键修复：将最终的正确位置编码更新到原position中
+            if final_corrected_position is not None:
+                position[:] = final_corrected_position
 
             avg_cost = total_cost / group_count
             avg_pressure_variance = np.mean(pressure_variances)
@@ -1334,7 +1460,7 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
             available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
                                    if d <= prev_diameter]  # 确保管径不大于前一段
             if not available_diameters:
-                return
+                available_diameters = [min(PIPE_SPECS["main"]["diameters"])]
 
             normalized_index = min(index, len(available_diameters) - 1)
             diameter = available_diameters[normalized_index]
@@ -1351,7 +1477,7 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
             available_first_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
                                          if d <= main_connection_diameter]
             if not available_first_diameters:
-                return
+                available_first_diameters = [min(PIPE_SPECS["submain"]["diameters"])]
 
             normalized_first_index = min(first_index, len(available_first_diameters) - 1)
             first_diameter = available_first_diameters[normalized_first_index]
@@ -1360,7 +1486,7 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
             available_second_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
                                           if d <= first_diameter]
             if not available_second_diameters:
-                return
+                available_second_diameters = [min(PIPE_SPECS["submain"]["diameters"])]
 
             normalized_second_index = min(second_index, len(available_second_diameters) - 1)
             second_diameter = available_second_diameters[normalized_second_index]
@@ -1523,22 +1649,58 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
 
     # 绘制最终图表
     tracker.finalize_plots()
-    # 添加在返回前，visualize_pareto_front(pareto_front)之后
-    # 保存帕累托前沿到文件
+
+    # ========== 添加解有效性验证部分 ==========
     try:
-        pareto_front_values = np.array([p.best_fitness for p in non_dominated_front])
-        save_pareto_front(pareto_front_values, "PSO_DAN")
-        save_pareto_solutions(non_dominated_front, "PSO_DAN")
-        print("帕累托解集已成功保存")
+        # 验证帕累托前沿的正确性，只保留通过验证的粒子
+        print("正在验证最终帕累托前沿的正确性...")
+        verified_particles = []
+        failed_particles = []
+
+        for i, particle in enumerate(non_dominated_front):
+            if verify_particle_correctness(particle, irrigation_system, group_count):
+                verified_particles.append(particle)
+                print(f"✓ 粒子{i}验证通过: 成本={particle.best_fitness[0]:.2f}, 方差={particle.best_fitness[1]:.4f}")
+            else:
+                failed_particles.append(particle)
+                print(f"✗ 粒子{i}验证失败: 成本={particle.best_fitness[0]:.2f}, 方差={particle.best_fitness[1]:.4f}")
+
+        print(f"帕累托前沿验证完成: {len(verified_particles)}/{len(non_dominated_front)} 粒子通过验证")
+
+        if len(verified_particles) == 0:
+            print("警告：没有粒子通过验证！将返回原始帕累托前沿")
+            verified_pareto_front = non_dominated_front
+        else:
+            print(f"最终返回{len(verified_particles)}个通过验证的粒子")
+            verified_pareto_front = verified_particles
+
+        # 提取验证后帕累托前沿的适应度值
+        pareto_front_values = np.array([p.best_fitness for p in verified_pareto_front])
+
+        # 保存到CSV和JSON（只保存通过验证的粒子）
+        save_pareto_front(pareto_front_values, "PSO_DAN_Verified")
+        save_pareto_solutions(verified_pareto_front, "PSO_DAN_Verified")
+        print("验证通过的帕累托解集已成功保存")
+
+        # 如果有失败的粒子，也保存一份用于分析
+        if failed_particles:
+            failed_values = np.array([p.best_fitness for p in failed_particles])
+            save_pareto_front(failed_values, "PSO_DAN_Failed")
+            save_pareto_solutions(failed_particles, "PSO_DAN_Failed")
+            print(f"验证失败的{len(failed_particles)}个粒子已保存用于分析")
+
     except Exception as e:
         print(f"保存帕累托解集时出错: {str(e)}")
+        # 如果验证过程出错，返回原始帕累托前沿
+        verified_pareto_front = non_dominated_front
+
     # 返回最终优化过的帕累托前沿
-    return non_dominated_front, logbook
+    return verified_pareto_front, logbook
 
 
 def save_pareto_front(pareto_front, algorithm_name, save_dir='PSO_DAN_result'):
     """
-    保存帕累托前沿到CSV文件
+    保存帕累托前沿到CSV文件（按成本从低到高排序）
     参数:
     pareto_front: 帕累托前沿解集，形式为[[cost1, variance1], [cost2, variance2], ...]
     algorithm_name: 算法名称
@@ -1547,20 +1709,26 @@ def save_pareto_front(pareto_front, algorithm_name, save_dir='PSO_DAN_result'):
     # 确保保存目录存在
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
+
     # 将解集转换为DataFrame
     df = pd.DataFrame(pareto_front, columns=['system_cost', 'pressure_variance'])
+
+    # 按成本从低到高排序
+    df = df.sort_values(by='system_cost', ascending=True).reset_index(drop=True)
+
     # 保存为CSV文件
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     filename = f"{algorithm_name}_pareto_front_{timestamp}.csv"
     filepath = os.path.join(save_dir, filename)
     df.to_csv(filepath, index=False)
     print(f"帕累托前沿已保存到：{filepath}")
+    print(f"共{len(df)}个解，按成本从{df['system_cost'].min():.2f}元到{df['system_cost'].max():.2f}元排序")
     return filepath
 
 
 def save_pareto_solutions(solutions, algorithm_name, save_dir='PSO_DAN_result'):
     """
-    保存帕累托解集（包括决策变量和目标值）到JSON文件
+    保存帕累托解集（包括决策变量和目标值）到JSON文件（按成本从低到高排序）
     参数:
     solutions: 帕累托解集，每个解包含决策变量和目标值
     algorithm_name: 算法名称
@@ -1592,6 +1760,9 @@ def save_pareto_solutions(solutions, algorithm_name, save_dir='PSO_DAN_result'):
         }
         solution_list.append(sol_dict)
 
+    # 按成本（objectives的第一个元素）从低到高排序
+    solution_list.sort(key=lambda x: x['objectives'][0])
+
     # 保存为JSON文件
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     filename = f"{algorithm_name}_solutions_{timestamp}.json"
@@ -1599,67 +1770,221 @@ def save_pareto_solutions(solutions, algorithm_name, save_dir='PSO_DAN_result'):
     with open(filepath, 'w') as f:
         json.dump(solution_list, f, indent=2)
 
+    print(f"帕累托解集已保存到：{filepath}")
+    if solution_list:
+        min_cost = solution_list[0]['objectives'][0]
+        max_cost = solution_list[-1]['objectives'][0]
+        print(f"共{len(solution_list)}个解，按成本从{min_cost:.2f}元到{max_cost:.2f}元排序")
 
-# 将_update_pipe_diameters从局部函数提升为全局函数
-def update_pipe_diameters(irrigation_system, individual):
-    """更新管网直径配置"""
-    # 解码个体
-    main_indices = individual[:len(irrigation_system.main_pipe) - 1]
-    submain_first_indices = individual[len(irrigation_system.main_pipe) - 1:
-                                       len(irrigation_system.main_pipe) + len(irrigation_system.submains) - 1]
-    submain_second_indices = individual[len(irrigation_system.main_pipe) +
-                                        len(irrigation_system.submains) - 1:]
+    return filepath
 
-    # 更新干管管径（确保管径递减）
-    prev_diameter = irrigation_system.main_pipe[0]["diameter"]
+
+def decode_solution_to_pipe_diameters_pso(irrigation_system, position):
+    """
+    PSO版本：纯解码函数，直接将粒子位置转换为管径配置，不进行任何约束检查
+    """
+    # 解码位置
+    main_indices = position[:len(irrigation_system.main_pipe) - 1]
+    submain_first_indices = position[len(irrigation_system.main_pipe) - 1:
+                                     len(irrigation_system.main_pipe) + len(irrigation_system.submains) - 1]
+    submain_second_indices = position[len(irrigation_system.main_pipe) +
+                                      len(irrigation_system.submains) - 1:]
+
+    # 直接根据基因索引设置干管管径
     for i, index in enumerate(main_indices, start=1):
-        available_diameters = [d for d in PIPE_SPECS["main"]["diameters"]
-                               if d <= prev_diameter]  # 确保管径不大于前一段
-        if not available_diameters:
-            return
-
-        normalized_index = min(index, len(available_diameters) - 1)
-        diameter = available_diameters[normalized_index]
+        # 直接使用基因索引从管径列表中选择，不做约束检查
+        normalized_index = min(int(index), len(PIPE_SPECS["main"]["diameters"]) - 1)
+        diameter = PIPE_SPECS["main"]["diameters"][normalized_index]
         irrigation_system.main_pipe[i]["diameter"] = diameter
-        prev_diameter = diameter
 
-    # 更新斗管管径
-    for i, (first_index, second_index) in enumerate(zip(submain_first_indices,
-                                                        submain_second_indices)):
-        # 获取连接处干管直径
-        main_connection_diameter = irrigation_system.main_pipe[i + 1]["diameter"]
+    # 直接根据基因索引设置斗管管径
+    for i, (first_index, second_index) in enumerate(zip(submain_first_indices, submain_second_indices)):
+        # 直接使用基因索引从管径列表中选择，不做约束检查
+        normalized_first_index = min(int(first_index), len(PIPE_SPECS["submain"]["diameters"]) - 1)
+        first_diameter = PIPE_SPECS["submain"]["diameters"][normalized_first_index]
 
-        # 确保斗管第一段管径不大于干管
-        available_first_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
-                                     if d <= main_connection_diameter]
-        if not available_first_diameters:
-            return
-
-        normalized_first_index = min(first_index, len(available_first_diameters) - 1)
-        first_diameter = available_first_diameters[normalized_first_index]
-
-        # 确保斗管第二段管径不大于第一段
-        available_second_diameters = [d for d in PIPE_SPECS["submain"]["diameters"]
-                                      if d <= first_diameter]
-        if not available_second_diameters:
-            return
-
-        normalized_second_index = min(second_index, len(available_second_diameters) - 1)
-        second_diameter = available_second_diameters[normalized_second_index]
+        normalized_second_index = min(int(second_index), len(PIPE_SPECS["submain"]["diameters"]) - 1)
+        second_diameter = PIPE_SPECS["submain"]["diameters"][normalized_second_index]
 
         irrigation_system.submains[i]["diameter_first_half"] = first_diameter
         irrigation_system.submains[i]["diameter_second_half"] = second_diameter
 
 
+def encode_pipe_diameters_from_system_pso(irrigation_system):
+    """PSO版本：从irrigation_system的当前状态编码为粒子位置"""
+    position = []
+
+    # 编码干管管径（从管段1开始，管段0不编码）
+    for i in range(1, len(irrigation_system.main_pipe)):
+        diameter = irrigation_system.main_pipe[i]["diameter"]
+        try:
+            diameter_index = PIPE_SPECS["main"]["diameters"].index(diameter)
+        except ValueError:
+            # 如果直径不在标准列表中，找最接近的
+            diameter_index = 0
+            min_diff = float('inf')
+            for idx, std_diameter in enumerate(PIPE_SPECS["main"]["diameters"]):
+                diff = abs(std_diameter - diameter)
+                if diff < min_diff:
+                    min_diff = diff
+                    diameter_index = idx
+        position.append(diameter_index)
+
+    # 编码斗管管径
+    for submain in irrigation_system.submains:
+        # 第一段管径
+        first_diameter = submain["diameter_first_half"]
+        try:
+            first_index = PIPE_SPECS["submain"]["diameters"].index(first_diameter)
+        except ValueError:
+            first_index = 0
+            min_diff = float('inf')
+            for idx, std_diameter in enumerate(PIPE_SPECS["submain"]["diameters"]):
+                diff = abs(std_diameter - first_diameter)
+                if diff < min_diff:
+                    min_diff = diff
+                    first_index = idx
+        position.append(first_index)
+
+        # 第二段管径
+        second_diameter = submain["diameter_second_half"]
+        try:
+            second_index = PIPE_SPECS["submain"]["diameters"].index(second_diameter)
+        except ValueError:
+            second_index = 0
+            min_diff = float('inf')
+            for idx, std_diameter in enumerate(PIPE_SPECS["submain"]["diameters"]):
+                diff = abs(std_diameter - second_diameter)
+                if diff < min_diff:
+                    min_diff = diff
+                    second_index = idx
+        position.append(second_index)
+
+    return np.array(position)
+
+
+def verify_particle_correctness(particle, irrigation_system, group_count):
+    """PSO版本：验证粒子的正确性（只验证，不修改）"""
+    try:
+        # 创建irrigation_system的副本用于验证
+        import copy
+        temp_system = copy.deepcopy(irrigation_system)
+
+        # 解码粒子位置到临时系统
+        decode_solution_to_pipe_diameters_pso(temp_system, particle.best_position)
+
+        # 检查约束条件
+        if not check_diameter_constraints_only_pso(temp_system):
+            return False
+
+        # 重新计算所有轮灌组的指标
+        total_cost = 0
+        variances = []
+
+        for group_idx in range(group_count):
+            active_nodes = temp_system.irrigation_groups[group_idx]
+            temp_system._update_flow_rates(active_nodes)
+            temp_system._calculate_hydraulics()
+            temp_system._calculate_pressures()
+
+            # 检查压力约束
+            baseline_heads_data = temp_system.calculate_node_baseline_heads()
+            baseline_heads = {data['node']: data['baseline_head'] for data in baseline_heads_data}
+
+            for node in active_nodes:
+                if node <= len(temp_system.submains):
+                    submain = temp_system.submains[node - 1]
+                    required_pressure = baseline_heads.get(node, DEFAULT_DRIP_LINE_INLET_PRESSURE)
+                    if submain["inlet_pressure"] < required_pressure:
+                        return False
+
+            metrics = temp_system.evaluate_group(group_idx)
+            total_cost += metrics['cost']
+            variances.append(metrics['pressure_variance'])
+
+        avg_cost = total_cost / group_count
+        avg_variance = np.mean(variances)
+
+        # 检查计算结果与记录的适应度值是否一致
+        cost_diff = abs(avg_cost - particle.best_fitness[0])
+        var_diff = abs(avg_variance - particle.best_fitness[1])
+
+        # 允许一定的数值误差
+        return cost_diff < 1e-6 and var_diff < 1e-6
+
+    except Exception as e:
+        print(f"验证过程出错: {e}")
+        return False
+
+
+def check_diameter_constraints_only_pso(irrigation_system):
+    """PSO版本：仅检查管径约束（不修改）"""
+    # 检查干管直径递减约束
+    for i in range(1, len(irrigation_system.main_pipe)):
+        current_diameter = irrigation_system.main_pipe[i]["diameter"]
+        prev_diameter = irrigation_system.main_pipe[i - 1]["diameter"]
+        if current_diameter > prev_diameter:
+            return False
+
+    # 检查斗管约束
+    for i, submain in enumerate(irrigation_system.submains):
+        main_diameter = irrigation_system.main_pipe[i + 1]["diameter"]
+        first_diameter = submain["diameter_first_half"]
+        second_diameter = submain["diameter_second_half"]
+
+        if first_diameter > main_diameter or second_diameter > first_diameter:
+            return False
+
+    return True
+
+
 def print_detailed_results(irrigation_system, best_solution, output_file="optimization_results_PSO_DAN.txt"):
-    """优化后的结果输出函数，包含压力分析"""
-    # 添加：首先根据best_particle中的最佳位置更新系统配置
-    individual = best_solution.best_position.tolist()
-    update_pipe_diameters(irrigation_system, individual)
+    """PSO版本：优化后的结果输出函数，包含压力分析（使用节点基准水头）"""
+    # 【关键修改】：使用优化后的位置编码（如果存在）
+    print("正在解码最优解的管径配置...")
+    if hasattr(best_solution, 'optimized_position') and best_solution.optimized_position is not None:
+        print("使用优化后的位置编码进行解码...")
+        decode_solution_to_pipe_diameters_pso(irrigation_system, best_solution.optimized_position)
+    else:
+        print("使用最优位置编码进行解码...")
+        decode_solution_to_pipe_diameters_pso(irrigation_system, best_solution.best_position)
+    print("管径配置解码完成，开始输出详细结果...")
+
+    # 获取各节点的基准水头
+    baseline_heads_data = irrigation_system.calculate_node_baseline_heads()
+    baseline_heads = {data['node']: data['baseline_head'] for data in baseline_heads_data}
+
     with open(output_file, 'w', encoding='utf-8') as f:
         def write_line(text):
             print(text)
             f.write(text + '\n')
+
+        # 直接调用print_node_baseline_heads方法输出详细的基准水头表
+        write_line("正在输出各节点基准水头详细信息...")
+
+        # 临时重定向输出到文件
+        import sys
+        from io import StringIO
+
+        # 保存原始stdout
+        original_stdout = sys.stdout
+
+        # 创建字符串缓冲区来捕获print_node_baseline_heads的输出
+        captured_output = StringIO()
+        sys.stdout = captured_output
+
+        # 调用print_node_baseline_heads方法
+        irrigation_system.print_node_baseline_heads()
+
+        # 恢复原始stdout
+        sys.stdout = original_stdout
+
+        # 获取捕获的输出内容
+        baseline_output = captured_output.getvalue()
+
+        # 输出到控制台和文件
+        print(baseline_output, end='')
+        f.write(baseline_output)
 
         # 输出斗管管径配置
         write_line("\n=== 斗管分段管径配置 ===")
@@ -1696,9 +2021,10 @@ def print_detailed_results(irrigation_system, best_solution, output_file="optimi
             group_pressures = []
             write_line("\n管段水力参数表:")
             write_line(
-                "编号    后端距起点    管径    段前启用状态    流量       流速     水头损失    段前水头压力    压力富裕")
-            write_line("         (m)       (mm)                (m³/s)     (m/s)     (m)          (m)         (m)")
-            write_line("-" * 100)
+                "编号    后端距起点    管径    段前启用状态    流量       流速     水头损失    段前水头压力    基准水头    压力富裕")
+            write_line(
+                "         (m)       (mm)                (m³/s)     (m/s)     (m)          (m)         (m)        (m)")
+            write_line("-" * 110)
 
             distance = 0
             for i in range(irrigation_system.node_count + 1):
@@ -1706,19 +2032,22 @@ def print_detailed_results(irrigation_system, best_solution, output_file="optimi
                 distance += segment["length"]
                 status = "*" if i in nodes else " "
 
-                # 计算压力富裕度
-                pressure_margin = segment["pressure"] - PRESSURE_BASELINE if i in nodes else 0
-                if i in nodes:
+                # 计算压力富裕度（使用节点基准水头）
+                if i in nodes and i > 0:  # 节点编号从1开始
+                    required_pressure = baseline_heads.get(i, DEFAULT_DRIP_LINE_INLET_PRESSURE)
+                    pressure_margin = segment["pressure"] - required_pressure
                     group_pressures.append(pressure_margin)
                     all_pressure_margins.append(pressure_margin)
 
-                write_line(f"{i:2d}    {distance:6.1f}    {segment['diameter']:4d}      {status}      "
-                           f"{segment['flow_rate']:8.6f}  {segment['velocity']:6.2f}    "
-                           f"{segment['head_loss']:6.2f}     {segment['pressure']:6.2f}     "
-                           f"{pressure_margin:6.2f}" if i in nodes else
-                           f"{i:2d}    {distance:6.1f}    {segment['diameter']:4d}      {status}      "
-                           f"{segment['flow_rate']:8.6f}  {segment['velocity']:6.2f}    "
-                           f"{segment['head_loss']:6.2f}     {segment['pressure']:6.2f}     -")
+                    write_line(f"{i:2d}    {distance:6.1f}    {segment['diameter']:4d}      {status}      "
+                               f"{segment['flow_rate']:8.6f}  {segment['velocity']:6.2f}    "
+                               f"{segment['head_loss']:6.2f}     {segment['pressure']:6.2f}     "
+                               f"{required_pressure:6.2f}     {pressure_margin:6.2f}")
+                else:
+                    write_line(f"{i:2d}    {distance:6.1f}    {segment['diameter']:4d}      {status}      "
+                               f"{segment['flow_rate']:8.6f}  {segment['velocity']:6.2f}    "
+                               f"{segment['head_loss']:6.2f}     {segment['pressure']:6.2f}     "
+                               f"{'—':>6}     {'—':>6}")
 
             # 计算并输出该组的统计指标
             if group_pressures:
@@ -1731,7 +2060,9 @@ def print_detailed_results(irrigation_system, best_solution, output_file="optimi
                 write_line(f"压力均方差: {std_dev:.2f}")
 
             write_line("\n注: * 表示该管段对应节点在当前轮灌组中启用")
-            write_line("-" * 100)
+            write_line("    基准水头 = 滴灌带入口水头 + 农管水头损失 + 斗管水头损失")
+            write_line("    压力富裕 = 段前水头压力 - 基准水头")
+            write_line("-" * 110)
 
         # 计算全局统计指标
         # 使用与优化算法相同的方法计算全局压力均方差：所有轮灌组方差的平均值
