@@ -1685,7 +1685,7 @@ def multi_objective_pso(irrigation_system, lgz1, lgz2, swarm_size, max_iteration
         # 如果有失败的粒子，也保存一份用于分析
         if failed_particles:
             failed_values = np.array([p.best_fitness for p in failed_particles])
-            save_pareto_front(failed_values, "PSO_DAN_Failed")
+            save_pareto_front(failed_values, "PSO_SHUANG_Failed")
             save_pareto_solutions(failed_particles, "PSO_SHUANG_Failed")
             print(f"验证失败的{len(failed_particles)}个粒子已保存用于分析")
 
