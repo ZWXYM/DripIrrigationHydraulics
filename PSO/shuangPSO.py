@@ -2379,5 +2379,5 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # 执行主程序
-    main(32, 49.62, 500, 11, 2, 50, 50, True, True)
+    main(32, 49.62, 500, 11, 2, 50, 50, True, False)
     # main_batch(32, 49.62, 500, 11, 2, 100, 50, False, True)
